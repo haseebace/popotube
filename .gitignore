@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# Local Storage
+downloads/
+docker/qbittorrent/config/
