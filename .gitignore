@@ -48,3 +48,4 @@ backend/.env
 # Local Storage
 downloads/
 docker/qbittorrent/config/
+docker/jackett/config/

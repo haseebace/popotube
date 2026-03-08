@@ -17,6 +17,20 @@ services:
       - "6881:6881" # Torrent port TCP
       - "6881:6881/udp" # Torrent port UDP
     restart: unless-stopped
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: popotube-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - AUTO_UPDATE=true
+    volumes:
+      - ./docker/jackett/config:/config
+      - ./downloads:/downloads
+    ports:
+      - "9117:9117"
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
