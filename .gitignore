@@ -46,6 +46,6 @@ backend/dist/
 backend/.env
 
 # Local Storage
-downloads/
+media/
 docker/qbittorrent/config/
 docker/jackett/config/

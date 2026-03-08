@@ -6,4 +6,4 @@ dist/
 *.md
 /backend/
 /docker/
-/downloads/
+/media/

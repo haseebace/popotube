@@ -11,7 +11,7 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - ./docker/qbittorrent/config:/config
-      - ./downloads:/downloads
+      - ./media:/downloads
     ports:
       - "8080:8080" # Web UI
       - "6881:6881" # Torrent port TCP
@@ -27,7 +27,7 @@ services:
       - AUTO_UPDATE=true
     volumes:
       - ./docker/jackett/config:/config
-      - ./downloads:/downloads
+      - ./media:/downloads
     ports:
       - "9117:9117"
     restart: unless-stopped
@@ -39,7 +39,7 @@ services:
       - "8081:80"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./downloads:/usr/share/nginx/html/downloads:ro
+      - ./media:/usr/share/nginx/html/downloads:ro
     depends_on:
       - qbittorrent
     restart: unless-stopped
@@ -54,7 +54,7 @@ services:
     env_file:
       - ./backend/.env
     volumes:
-      - ./downloads:/downloads
+      - ./media:/downloads
     restart: unless-stopped
     depends_on:
       - qbittorrent
