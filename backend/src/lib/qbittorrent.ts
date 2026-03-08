@@ -17,6 +17,8 @@ class QBittorrentClient {
       baseURL: QBITTORRENT_URL,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': QBITTORRENT_URL,
+        'Origin': QBITTORRENT_URL,
       },
     });
   }
