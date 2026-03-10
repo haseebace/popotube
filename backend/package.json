@@ -19,7 +19,6 @@
     "@supabase/supabase-js": "^2.98.0",
     "axios": "^1.13.6",
     "bullmq": "^5.70.4",
-    "check-disk-space": "^3.4.0",
     "dotenv": "^17.3.1",
     "fastify": "^5.8.1",
     "ioredis": "^5.10.0",

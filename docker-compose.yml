@@ -1,22 +1,6 @@
 version: '3.8'
 
 services:
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: popotube-qbittorrent
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-      - WEBUI_PORT=8080
-    volumes:
-      - ./docker/qbittorrent/config:/config
-      - ./media:/downloads
-    ports:
-      - "8080:8080" # Web UI
-      - "6881:6881" # Torrent port TCP
-      - "6881:6881/udp" # Torrent port UDP
-    restart: unless-stopped
   jackett:
     image: lscr.io/linuxserver/jackett:latest
     container_name: popotube-jackett
@@ -27,21 +11,8 @@ services:
       - AUTO_UPDATE=true
     volumes:
       - ./docker/jackett/config:/config
-      - ./media:/downloads
     ports:
       - "9117:9117"
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    container_name: popotube-nginx
-    ports:
-      - "8081:80"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./media:/usr/share/nginx/html/downloads:ro
-    depends_on:
-      - qbittorrent
     restart: unless-stopped
 
   backend:
@@ -52,12 +23,8 @@ services:
     ports:
       - "3001:3001"
     env_file:
-      - ./backend/.env
-    volumes:
-      - ./media:/downloads
+      - ./.env
     restart: unless-stopped
-    depends_on:
-      - qbittorrent
 
   frontend:
     build:
@@ -71,8 +38,7 @@ services:
     environment:
       - BACKEND_URL=http://backend:3001
     env_file:
-      - .env.local
+      - ./.env
     restart: unless-stopped
     depends_on:
       - backend
-

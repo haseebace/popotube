@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../lib/supabase';
 import { ingestionQueue } from '../queue/ingestion';
-import { hasEnoughDiskSpace } from '../lib/disk-space';
 
 interface BunnyDownloadBody {
   magnet: string;
@@ -24,12 +23,6 @@ export default async function (fastify: FastifyInstance) {
 
       if (!info_hash) {
         return reply.status(400).send({ error: 'Invalid magnet link' });
-      }
-
-      // Check Disk Space BEFORE proceeding
-      const { hasSpace, message } = await hasEnoughDiskSpace(size);
-      if (!hasSpace) {
-        return reply.status(507).send({ error: `Not enough disk space on server. ${message}` });
       }
 
       // Try to insert

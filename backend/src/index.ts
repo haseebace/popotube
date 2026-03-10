@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables from .env
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 import './queue/ingestion';
 import { ingestionQueue } from './queue/ingestion';
