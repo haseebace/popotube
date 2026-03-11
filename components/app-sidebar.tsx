@@ -16,11 +16,11 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Search", url: "/home", icon: Home },
-  { title: "Library", url: "/library", icon: Library },
-  { title: "Downloads", url: "/downloads", icon: Download },
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "Admin", url: "/admin", icon: Server },
+  { title: "Dashboard", url: "/admin", icon: Server },
+  { title: "Search", url: "/admin/search", icon: Home },
+  { title: "Library", url: "/admin/library", icon: Library },
+  { title: "Downloads", url: "/admin/downloads", icon: Download },
+  { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

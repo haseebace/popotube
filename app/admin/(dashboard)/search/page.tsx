@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TMDBSearchAutocomplete } from "@/components/admin/TMDBSearchAutocomplete";
 
 interface TorrentResult {
   title: string;
@@ -86,7 +87,7 @@ function SkeletonCard() {
   );
 }
 
-function ResultCard({ result }: { result: TorrentResult }) {
+function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selectedTmdbId: number | null }) {
   const router = useRouter();
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -110,6 +111,7 @@ function ResultCard({ result }: { result: TorrentResult }) {
           magnet: result.magnetUri,
           size: result.size || 0,
           title: result.title,
+          tmdb_id: selectedTmdbId || undefined,
         }),
       });
 
@@ -118,7 +120,7 @@ function ResultCard({ result }: { result: TorrentResult }) {
         throw new Error(data.error || data.message || 'Failed to start download');
       }
 
-      router.push('/downloads');
+      router.push('/admin/downloads');
     } catch (err: any) {
       console.error(err);
       alert(`Error starting download: ${err.message}`);
@@ -215,6 +217,7 @@ const RESULTS_PER_PAGE = 25;
 
 export default function HomePage() {
   const [query, setQuery] = useState("");
+  const [selectedTmdbId, setSelectedTmdbId] = useState<number | null>(null);
   const [results, setResults] = useState<TorrentResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -226,7 +229,37 @@ export default function HomePage() {
 
   useEffect(() => {
     inputRef.current?.focus();
+    const cached = sessionStorage.getItem("popotube_search_cache");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setQuery(parsed.query || "");
+        setResults(parsed.results || []);
+        setSearched(parsed.searched || false);
+        setTotalResults(parsed.totalResults || 0);
+        setCurrentPage(parsed.currentPage || 1);
+        setSortBy(parsed.sortBy || "seeders");
+        setSelectedTmdbId(parsed.selectedTmdbId || null);
+      } catch (err) {
+        console.error("Failed to load cached search", err);
+      }
+    }
   }, []);
+
+  // Save state whenever it changes
+  useEffect(() => {
+    if (searched) {
+      sessionStorage.setItem("popotube_search_cache", JSON.stringify({
+        query,
+        results,
+        searched,
+        totalResults,
+        currentPage,
+        sortBy,
+        selectedTmdbId
+      }));
+    }
+  }, [query, results, searched, totalResults, currentPage, sortBy, selectedTmdbId]);
 
   async function handleSearch() {
     const trimmed = query.trim();
@@ -292,19 +325,29 @@ export default function HomePage() {
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "60px 16px" }}>
 
-      {/* Search bar + button */}
-      <div style={{ display: "flex", gap: "8px" }}>
-        <Input
-          ref={inputRef}
-          type="search"
-          placeholder="Search..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <Button onClick={handleSearch} disabled={loading}>
-          {loading ? "Searching…" : "Search"}
-        </Button>
+      <div className="mb-8 space-y-4">
+        <div>
+          <h2 className="text-xl font-bold mb-2">1. Link Movie to TMDb</h2>
+          <TMDBSearchAutocomplete onSelect={(m) => setSelectedTmdbId(m.id)} />
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold mb-2">2. Search Torrents</h2>
+          {/* Search bar + button */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            <Input
+              ref={inputRef}
+              type="search"
+              placeholder="Search Jackett for magnet..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <Button onClick={handleSearch} disabled={loading}>
+              {loading ? "Searching…" : "Search"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Results */}
@@ -360,7 +403,7 @@ export default function HomePage() {
         {!loading && pageResults.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {pageResults.map((result, i) => (
-              <ResultCard key={`${result.infoHash ?? result.title}-${i}`} result={result} />
+              <ResultCard key={`${result.infoHash ?? result.title}-${i}`} result={result} selectedTmdbId={selectedTmdbId} />
             ))}
           </div>
         )}
