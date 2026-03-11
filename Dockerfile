@@ -10,7 +10,6 @@ RUN npm install
 COPY . .
 ARG BACKEND_URL=http://backend:3001
 ENV BACKEND_URL=${BACKEND_URL}
-ENV NODE_OPTIONS="--max-old-space-size=768"
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
