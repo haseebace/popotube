@@ -4,7 +4,7 @@ import MovieCategoryRow from '@/components/public/MovieCategoryRow';
 
 export default function PublicHomepage() {
   return (
-    <div className="w-full flex-1 flex flex-col items-center">
+    <div className="w-full max-w-[100vw] overflow-x-hidden flex-1 flex flex-col items-center">
       <HeroBanner />
       
       <div className="w-full pb-16 pt-4 space-y-6">

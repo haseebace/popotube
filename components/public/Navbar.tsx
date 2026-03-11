@@ -13,17 +13,17 @@ export default function Navbar() {
             <span>PoPoTube</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-2">
-            <Button variant="ghost" asChild>
+          <nav className="flex items-center gap-1 md:gap-2">
+            <Button variant="ghost" size="sm" asChild className="px-2 md:px-4">
               <Link href="/">
-                <Home className="mr-2 h-4 w-4" />
-                Home
+                <Home className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Home</span>
               </Link>
             </Button>
-            <Button variant="ghost" asChild>
+            <Button variant="ghost" size="sm" asChild className="px-2 md:px-4">
               <Link href="/categories">
-                <List className="mr-2 h-4 w-4" />
-                Categories
+                <List className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Categories</span>
               </Link>
             </Button>
           </nav>
