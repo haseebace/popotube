@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { parseTorrentMetadata } from '@/utils/torrent-parser';
 
 const JACKETT_URL = process.env.JACKETT_URL || "http://127.0.0.1:9117";
 const JACKETT_API_KEY = process.env.JACKETT_API_KEY;
@@ -38,11 +39,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No magnet links found for this movie' }, { status: 404 });
     }
 
-    // Sort by Seeders * Size (prefer higher seeders and reasonable size)
-    validResults = validResults.sort((a: any, b: any) => b.Seeders - a.Seeders);
-    const bestResult = validResults[0];
+    // 2. Scoring Algorithm: Score = Seeders / (Size in GB)
+    // We want highly seeded, smaller (1080p) files over massive 4k files
+    const scoredResults = validResults.map((r: any) => {
+      const sizeGB = r.Size / (1024 * 1024 * 1024);
+      const score = r.Seeders / (sizeGB || 1);
+      return { ...r, score };
+    });
 
-    // 2. Transmit to backend download endpoint
+    const bestResult = scoredResults.sort((a: any, b: any) => b.score - a.score)[0];
+    const metadata = parseTorrentMetadata(bestResult.Title);
+
+    // 3. Transmit to backend download endpoint
     const backendRes = await fetch(`${BACKEND_URL}/api/bunny-download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,6 +59,9 @@ export async function POST(request: Request) {
          size: bestResult.Size,
          title: title,
          tmdb_id: parseInt(tmdb_id, 10),
+         quality: metadata.quality,
+         codec: metadata.codec,
+         source: metadata.source
       })
     });
 

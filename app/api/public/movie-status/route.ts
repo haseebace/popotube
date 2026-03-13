@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from('videos')
-      .select('id, status, stream_url, progress, title, error_message')
+      .select('id, status, stream_url, progress, title, error_message, quality, codec, source')
       .eq('tmdb_id', parseInt(tmdbId, 10))
       .maybeSingle();
 

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 export default function WatchClient({ tmdbId, movieDetails }: { tmdbId: string, movieDetails: any }) {
     const [status, setStatus] = useState<any>(null); // video status in our db
@@ -75,13 +76,32 @@ export default function WatchClient({ tmdbId, movieDetails }: { tmdbId: string, 
 
     if (!loading && status?.stream_url) {
          return (
-             <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl relative">
-                 <iframe 
-                      src={status.stream_url}
-                      className="absolute top-0 left-0 w-full h-full border-0"
-                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" 
-                      allowFullScreen
-                 />
+             <div className="space-y-4 w-full">
+                 <div className="flex flex-wrap items-center gap-2">
+                     {status.quality && status.quality !== 'unknown' && (
+                         <Badge variant="outline" className="text-xs uppercase border-primary/20 bg-primary/5">
+                             {status.quality}
+                         </Badge>
+                     )}
+                     {status.codec && status.codec !== 'unknown' && (
+                         <Badge variant="outline" className="text-xs uppercase text-muted-foreground">
+                             {status.codec}
+                         </Badge>
+                     )}
+                     {status.source && status.source !== 'unknown' && (
+                         <Badge variant="outline" className="text-xs uppercase text-muted-foreground">
+                             {status.source}
+                         </Badge>
+                     )}
+                 </div>
+                 <div className="w-full aspect-video bg-black rounded-lg overflow-hidden shadow-2xl relative">
+                     <iframe 
+                          src={status.stream_url}
+                          className="absolute top-0 left-0 w-full h-full border-0"
+                          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" 
+                          allowFullScreen
+                     />
+                 </div>
              </div>
          )
     }

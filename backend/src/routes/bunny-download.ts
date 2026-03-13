@@ -7,12 +7,15 @@ interface BunnyDownloadBody {
   size: number;
   title: string;
   tmdb_id?: number;
+  quality?: string;
+  codec?: string;
+  source?: string;
 }
 
 export default async function (fastify: FastifyInstance) {
   fastify.post('/api/bunny-download', async (request: FastifyRequest<{ Body: BunnyDownloadBody }>, reply: FastifyReply) => {
     try {
-      const { magnet, size, title, tmdb_id } = request.body;
+      const { magnet, size, title, tmdb_id, quality, codec, source } = request.body;
 
       if (!magnet || !size || !title) {
         return reply.status(400).send({ error: 'Missing required fields: magnet, size, title' });
@@ -36,6 +39,9 @@ export default async function (fastify: FastifyInstance) {
           magnet_uri: magnet,
           size_bytes: size,
           tmdb_id: tmdb_id || null, // store the tmdb_id if provided
+          quality: quality || null,
+          codec: codec || null,
+          source: source || null,
         })
         .select()
         .single();
@@ -64,6 +70,9 @@ export default async function (fastify: FastifyInstance) {
                  error_message: null,
                  progress: 0,
                  tmdb_id: tmdb_id || existingData.tmdb_id, // ensure tmdb_id is attached if supplied
+                 quality: quality || existingData.quality,
+                 codec: codec || existingData.codec,
+                 source: source || existingData.source,
                })
                .eq('id', existingData.id)
                .select()
@@ -76,7 +85,12 @@ export default async function (fastify: FastifyInstance) {
           } else {
              // Just implicitly update the DB record if it was missing the tmdb_id
              if (tmdb_id && !existingData.tmdb_id) {
-                await supabase.from('videos').update({ tmdb_id }).eq('id', existingData.id);
+                await supabase.from('videos').update({ 
+                  tmdb_id,
+                  quality: quality || existingData.quality,
+                  codec: codec || existingData.codec,
+                  source: source || existingData.source
+                }).eq('id', existingData.id);
              }
 
              return reply.send({

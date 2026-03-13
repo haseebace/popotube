@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TMDBSearchAutocomplete } from "@/components/admin/TMDBSearchAutocomplete";
+import { parseTorrentMetadata } from "@/utils/torrent-parser";
 
 interface TorrentResult {
   title: string;
@@ -102,6 +103,8 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
       return;
     }
 
+    const metadata = parseTorrentMetadata(result.title);
+
     setIsDownloading(true);
     try {
       const res = await fetch('/api/backend/bunny-download', {
@@ -112,6 +115,9 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
           size: result.size || 0,
           title: result.title,
           tmdb_id: selectedTmdbId || undefined,
+          quality: metadata.quality,
+          codec: metadata.codec,
+          source: metadata.source
         }),
       });
 
@@ -129,6 +135,8 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
     }
   }
 
+  const metadata = parseTorrentMetadata(result.title);
+
   return (
     <div className="result-card">
       {/* Row 1: Title + action buttons */}
@@ -144,6 +152,11 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
               {result.title}
             </p>
           </a>
+          <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+            {metadata.quality !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase">{metadata.quality}</Badge>}
+            {metadata.codec !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase text-muted-foreground">{metadata.codec}</Badge>}
+            {metadata.source !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase text-muted-foreground">{metadata.source}</Badge>}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", flexShrink: 0, paddingTop: "2px" }}>
           {/* Magnet + download icons */}
