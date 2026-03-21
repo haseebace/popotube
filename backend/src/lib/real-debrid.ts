@@ -1,4 +1,7 @@
 import axios from 'axios';
+import http from 'http';
+import https from 'https';
+import { logger } from './logger';
 
 const RD_API_BASE = 'https://api.real-debrid.com/rest/1.0';
 
@@ -39,22 +42,192 @@ export interface RDUnrestrictLink {
   streamable: number;
 }
 
+const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.webm', '.mov', '.m4v', '.ts', '.m2ts'];
+const LOW_VALUE_PATH_PATTERNS = [
+  /\bsample\b/i,
+  /\btrailer\b/i,
+  /\bpreview\b/i,
+  /\bextras?\b/i,
+  /\bfeaturettes?\b/i,
+  /\bbehind[ ._-]?the[ ._-]?scenes\b/i,
+  /\bdeleted[ ._-]?scenes\b/i,
+  /\binterview\b/i,
+  /\bproof\b/i,
+  /\breadme\b/i,
+  /\bnfo\b/i,
+];
+
+function getPathSegments(path: string): string[] {
+  return path.toLowerCase().split('/').filter(Boolean);
+}
+
+function normalizeTitle(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function titleMatchScore(path: string, expectedTitle?: string): number {
+  if (!expectedTitle) return 0;
+
+  const normalizedExpected = normalizeTitle(expectedTitle);
+  if (!normalizedExpected) return 0;
+
+  const normalizedPath = normalizeTitle(path);
+  if (!normalizedPath) return 0;
+
+  if (normalizedPath.includes(normalizedExpected)) {
+    return 350;
+  }
+
+  const expectedTokens = normalizedExpected.split(' ').filter((token) => token.length >= 3);
+  if (!expectedTokens.length) return 0;
+
+  const matchedTokens = expectedTokens.filter((token) => normalizedPath.includes(token)).length;
+  const coverage = matchedTokens / expectedTokens.length;
+
+  if (coverage >= 0.8) return 220;
+  if (coverage >= 0.5) return 120;
+  if (coverage >= 0.3) return 50;
+  return 0;
+}
+
+function isVideoFile(path: string): boolean {
+  const lower = path.toLowerCase();
+  return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+function scoreRdFile(file: RDFile, expectedTitle?: string): number {
+  const lowerPath = file.path.toLowerCase();
+  const segments = getPathSegments(file.path);
+  const fileName = segments[segments.length - 1] || lowerPath;
+  let score = 0;
+
+  if (isVideoFile(lowerPath)) {
+    score += 400;
+  } else {
+    score -= 500;
+  }
+
+  if (file.bytes >= 500 * 1024 * 1024) score += 200;
+  else if (file.bytes >= 200 * 1024 * 1024) score += 100;
+  else if (file.bytes <= 50 * 1024 * 1024) score -= 300;
+  else if (file.bytes <= 150 * 1024 * 1024) score -= 150;
+
+  score += Math.min(file.bytes / (1024 * 1024 * 1024), 20) * 15;
+
+  for (const pattern of LOW_VALUE_PATH_PATTERNS) {
+    if (pattern.test(lowerPath)) {
+      score -= 600;
+    }
+  }
+
+  if (/\b(cd|disc|disk|part)[ ._-]?[0-9]+\b/i.test(fileName)) score -= 250;
+  if (/\bbonus\b/i.test(lowerPath)) score -= 400;
+  if (/\bmovie\b/i.test(fileName)) score += 100;
+  if (/\bmain\b/i.test(fileName)) score += 50;
+  score += titleMatchScore(file.path, expectedTitle);
+
+  return score;
+}
+
 export class RealDebridClient {
   private client: import('axios').AxiosInstance;
+  private cachedKey: string | null = null;
+  private lastFetch: number = 0;
+  private readonly httpAgent = new http.Agent({
+    keepAlive: true,
+    maxSockets: 25,
+  });
+  private readonly httpsAgent = new https.Agent({
+    keepAlive: true,
+    maxSockets: 25,
+  });
 
   constructor() {
-    const apiKey = process.env.REAL_DEBRID_API_KEY;
-    if (!apiKey || apiKey === 'your_real_debrid_api_key_here') {
-      console.warn('REAL_DEBRID_API_KEY is not configured properly.');
-    }
-
     this.client = axios.create({
       baseURL: RD_API_BASE,
+      timeout: 15000,
+      httpAgent: this.httpAgent,
+      httpsAgent: this.httpsAgent,
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       },
     });
+
+    // Intercept outbound requests to dynamically inject the API key from Database or Env
+    this.client.interceptors.request.use(async (config: any) => {
+      config.metadata = {
+        startedAt: Date.now(),
+      };
+      const apiKey = await this.getApiKey();
+      if (apiKey && apiKey !== 'your_real_debrid_api_key_here') {
+        config.headers.Authorization = `Bearer ${apiKey}`;
+      } else {
+        logger.warn('⚠️ [Real-Debrid] API Key missing during request execution.');
+      }
+      return config;
+    });
+
+    this.client.interceptors.response.use(
+      (response: any) => {
+        const startedAt = response.config.metadata?.startedAt;
+        const durationMs = typeof startedAt === 'number' ? Date.now() - startedAt : undefined;
+        const logLevel: 'info' | 'warn' = typeof durationMs === 'number' && durationMs >= 2000 ? 'warn' : 'info';
+
+        logger[logLevel]({
+          method: response.config.method?.toUpperCase(),
+          path: response.config.url,
+          status: response.status,
+          duration_ms: durationMs,
+        }, logLevel === 'warn' ? 'Real-Debrid API request completed slowly' : 'Real-Debrid API request completed');
+
+        return response;
+      },
+      (error: any) => {
+        const startedAt = error.config?.metadata?.startedAt;
+        const durationMs = typeof startedAt === 'number' ? Date.now() - startedAt : undefined;
+
+        logger.error({
+          err: error,
+          method: error.config?.method?.toUpperCase(),
+          path: error.config?.url,
+          status: error.response?.status,
+          duration_ms: durationMs,
+        }, 'Real-Debrid API request failed');
+
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  private async getApiKey(): Promise<string | undefined> {
+    const now = Date.now();
+    // 60-second rolling token cache to protect database limits
+    if (this.cachedKey && (now - this.lastFetch < 60000)) {
+      return this.cachedKey || undefined;
+    }
+    
+    try {
+      const { supabase } = await import('./supabase');
+      const { data, error } = await supabase.from('app_settings')
+        .select('value')
+        .eq('key', 'REAL_DEBRID_API_KEY')
+        .maybeSingle();
+
+      if (!error && data?.value) {
+        this.cachedKey = data.value;
+        this.lastFetch = now;
+        return this.cachedKey || undefined;
+      }
+    } catch (e) {
+      // Safe fail
+    }
+
+    // Fallback to absolute Env configuration
+    return process.env.REAL_DEBRID_API_KEY || undefined;
   }
 
   /**
@@ -81,34 +254,63 @@ export class RealDebridClient {
   }
 
   /**
-   * Tells Real-Debrid to start processing the largest video file inside the torrent.
+   * Fetch a list of active and recent torrents from Real-Debrid.
    */
-  async selectFiles(id: string): Promise<void> {
-    const info = await this.getTorrentInfo(id);
-    
-    // Find the largest file (presumably the video we want)
-    // Filter out obvious non-video files if possible, or just pick the largest.
-    const videoExtensions = ['.mp4', '.mkv', '.avi', '.webm', '.mov'];
-    
-    let targetFiles = info.files.filter((f) => 
-      videoExtensions.some((ext) => f.path.toLowerCase().endsWith(ext))
-    );
+  async getTorrents(page: number = 1, limit: number = 50): Promise<{ data: any[], total: number }> {
+    const response = await this.client.get('/torrents', {
+      params: {
+        page,
+        limit
+      }
+    });
+    return {
+      data: response.data,
+      total: parseInt(response.headers['x-total-count'] || '0', 10)
+    };
+  }
 
-    // If no video extensions match, fallback to just finding the largest file overall
-    if (targetFiles.length === 0) {
-      targetFiles = info.files;
-    }
+  /**
+   * Tells Real-Debrid to start processing the best candidate video file inside the torrent.
+   */
+  async selectFiles(id: string, info?: RDTorrentInfo, expectedTitle?: string): Promise<void> {
+    const torrentInfo = info ?? await this.getTorrentInfo(id);
 
-    if (targetFiles.length === 0) {
+    if (!torrentInfo.files.length) {
       throw new Error('No files found in torrent');
     }
 
-    // Sort by largest bytes first
-    targetFiles.sort((a, b) => b.bytes - a.bytes);
-    const largestFile = targetFiles[0];
+    const rankedFiles = torrentInfo.files
+      .map((file) => ({
+        file,
+        score: scoreRdFile(file, expectedTitle),
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.file.bytes - a.file.bytes;
+      });
+
+    const selected = rankedFiles[0]?.file;
+
+    if (!selected) {
+      throw new Error('No suitable file found in torrent');
+    }
+
+    logger.info({
+      rd_torrent_id: id,
+      selected_file_id: selected.id,
+      selected_file_path: selected.path,
+      selected_file_bytes: selected.bytes,
+      candidate_count: rankedFiles.length,
+      top_candidates: rankedFiles.slice(0, 3).map(({ file, score }) => ({
+        id: file.id,
+        path: file.path,
+        bytes: file.bytes,
+        score,
+      })),
+    }, 'Selected Real-Debrid file for download');
 
     const params = new URLSearchParams();
-    params.append('files', largestFile.id.toString());
+    params.append('files', selected.id.toString());
     
     await this.client.post(`/torrents/selectFiles/${id}`, params.toString(), {
       headers: {
@@ -129,6 +331,14 @@ export class RealDebridClient {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
+    return response.data;
+  }
+
+  /**
+   * Fetches Real-Debrid authentication scope information (username, premium status)
+   */
+  async getUser(): Promise<any> {
+    const response = await this.client.get('/user');
     return response.data;
   }
 

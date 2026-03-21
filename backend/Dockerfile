@@ -3,8 +3,8 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install dependencies
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Copy source code and build
 COPY . .
@@ -20,8 +20,8 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 # Copy only production files
-COPY --from=builder /app/package.json ./
-RUN npm install --omit=dev
+COPY --from=builder /app/package.json /app/package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 

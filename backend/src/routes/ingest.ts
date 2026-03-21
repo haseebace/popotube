@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../lib/supabase';
 import { ingestionQueue } from '../queue/ingestion';
 
-interface BunnyDownloadBody {
+interface IngestBody {
   magnet: string;
   size: number;
   title: string;
@@ -13,7 +13,7 @@ interface BunnyDownloadBody {
 }
 
 export default async function (fastify: FastifyInstance) {
-  fastify.post('/api/bunny-download', async (request: FastifyRequest<{ Body: BunnyDownloadBody }>, reply: FastifyReply) => {
+  fastify.post('/api/ingest', async (request: FastifyRequest<{ Body: IngestBody }>, reply: FastifyReply) => {
     try {
       const { magnet, size, title, tmdb_id, quality, codec, source } = request.body;
 
@@ -93,6 +93,8 @@ export default async function (fastify: FastifyInstance) {
                 }).eq('id', existingData.id);
              }
 
+             fastify.log.info(`🔄 [Ingest] Video ${existingData.id} already exists with status: ${existingData.status}. Skipping queue addition.`);
+
              return reply.send({
                message: 'Video already exists',
                status: existingData.status,
@@ -121,6 +123,8 @@ export default async function (fastify: FastifyInstance) {
         }
       });
 
+      fastify.log.info(`📨 [Ingest] Successfully queued video ${videoRecord.id} into BullMQ as job ${job.id}`);
+
       // Save the BullMQ job ID back to Supabase for reliable cancellation later
       await supabase.from('videos').update({ bullmq_job_id: job.id }).eq('id', videoRecord.id);
 
@@ -132,8 +136,17 @@ export default async function (fastify: FastifyInstance) {
       });
 
     } catch (err) {
-      fastify.log.error({ err }, 'Exception in bunny-download route');
+      fastify.log.error({ err }, 'Exception in ingest route');
       return reply.status(500).send({ error: 'Internal server error' });
     }
+  });
+
+  // Fallback deprecated route
+  fastify.post('/api/bunny-download', async (request: FastifyRequest<{ Body: IngestBody }>, reply: FastifyReply) => {
+    fastify.log.warn('Client is using deprecated /api/bunny-download route. Serving via /api/ingest alias handler.');
+    // In Fastify we can't easily 308 post bodies cleanly on all tools, so we just pass the request to our handler logic above or rewrite it:
+    await fastify.inject({ method: 'POST', url: '/api/ingest', payload: request.body as any, headers: request.headers })
+      .then(res => reply.status(res.statusCode).headers(res.headers).send(res.payload))
+      .catch(() => reply.redirect('/api/ingest'));
   });
 }

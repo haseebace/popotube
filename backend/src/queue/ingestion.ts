@@ -2,10 +2,63 @@ import { Queue, Worker, UnrecoverableError } from 'bullmq';
 import { connection } from '../lib/redis';
 import { rdClient } from '../lib/real-debrid';
 import { supabase } from '../lib/supabase';
-import { bunnyStreamClient } from '../lib/bunny';
+import { cdnStreamClient } from '../lib/cdn';
 import { logger } from '../lib/logger';
 
 export const INGESTION_QUEUE_NAME = 'ingestionQueue';
+const RD_CONVERSION_POLL_MS = 750;
+const RD_DOWNLOAD_POLL_FAST_MS = 1000;
+const RD_DOWNLOAD_POLL_SLOW_MS = 2500;
+const STEP_WARN_THRESHOLD_MS: Record<string, number> = {
+  rd_add_magnet: 1500,
+  rd_wait_for_conversion: 3000,
+  rd_select_files: 1500,
+  rd_wait_for_download: 5000,
+  rd_refresh_completed_links: 1500,
+  rd_unrestrict_link: 2000,
+};
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createStepTimer(jobId: string | undefined, videoId: string) {
+  const jobStartedAt = Date.now();
+
+  return {
+    step(label: string) {
+      const stepStartedAt = Date.now();
+
+      return {
+        finish(extra: Record<string, unknown> = {}) {
+          const durationMs = Date.now() - stepStartedAt;
+          const thresholdMs = STEP_WARN_THRESHOLD_MS[label] ?? 3000;
+          const logLevel: 'info' | 'warn' = durationMs >= thresholdMs ? 'warn' : 'info';
+
+          logger[logLevel]({
+            jobId,
+            videoId,
+            step: label,
+            duration_ms: durationMs,
+            total_elapsed_ms: Date.now() - jobStartedAt,
+            ...extra,
+          }, durationMs >= thresholdMs ? 'Ingestion step completed slowly' : 'Ingestion step completed');
+        }
+      };
+    },
+    total(extra: Record<string, unknown> = {}) {
+      const totalElapsedMs = Date.now() - jobStartedAt;
+      const logLevel: 'info' | 'warn' = totalElapsedMs >= 15000 ? 'warn' : 'info';
+
+      logger[logLevel]({
+        jobId,
+        videoId,
+        total_elapsed_ms: totalElapsedMs,
+        ...extra,
+      }, totalElapsedMs >= 15000 ? 'Ingestion completed slowly' : 'Ingestion completed');
+    }
+  };
+}
 
 // Initialize the Queue
 export const ingestionQueue = new Queue(INGESTION_QUEUE_NAME, {
@@ -18,8 +71,8 @@ export const ingestionWorker = new Worker(
   async (job) => {
     logger.info(`🚀 [Job ${job.id}] Started processing ingestion job`);
     const { videoId, magnet_uri } = job.data;
-    let bunnyVideoId: string | null = null;
     let rdTorrentId: string | null = null;
+    const timing = createStepTimer(job.id, videoId);
 
     try {
       // Fetch video from DB
@@ -42,17 +95,24 @@ export const ingestionWorker = new Worker(
       await supabase.from('videos').update({ status: 'downloading_torrent' }).eq('id', videoId);
 
       // Phase 3.1: Send to Real-Debrid
+      const addMagnetStep = timing.step('rd_add_magnet');
       logger.info(`📥 [Job ${job.id}] Sending magnet to Real-Debrid...`);
       rdTorrentId = await rdClient.addMagnet(magnet_uri);
+      addMagnetStep.finish({ rd_torrent_id: rdTorrentId });
 
       // Wait for Real-Debrid to convert magnet and prepare files
       logger.info(`⏳ [Job ${job.id}] Waiting for Real-Debrid to convert magnet...`);
       let isWaitingFiles = false;
       let torrentInfo;
+      let conversionPolls = 0;
+      const conversionStep = timing.step('rd_wait_for_conversion');
 
       while (!isWaitingFiles) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        if (conversionPolls > 0) {
+          await wait(RD_CONVERSION_POLL_MS);
+        }
         torrentInfo = await rdClient.getTorrentInfo(rdTorrentId);
+        conversionPolls++;
 
         if (torrentInfo.status === 'waiting_files_selection') {
           isWaitingFiles = true;
@@ -62,19 +122,34 @@ export const ingestionWorker = new Worker(
           throw new Error(`Real-Debrid error: Torrent is ${torrentInfo.status}`);
         }
       }
+      conversionStep.finish({
+        polls: conversionPolls,
+        rd_status: torrentInfo?.status,
+      });
 
       // Select Files (if needed)
       if (torrentInfo!.status === 'waiting_files_selection') {
+        const selectFilesStep = timing.step('rd_select_files');
         logger.info(`📁 [Job ${job.id}] Selecting largest video file in Real-Debrid...`);
-        await rdClient.selectFiles(rdTorrentId);
+        await rdClient.selectFiles(rdTorrentId, torrentInfo, videoRecord.title);
+        selectFilesStep.finish({
+          total_files: torrentInfo?.files?.length ?? 0,
+        });
       }
 
       // Poll for download completion on Real-Debrid
       logger.info(`⏳ [Job ${job.id}] Polling for Real-Debrid download completion...`);
       let isComplete = false;
+      let downloadPolls = 0;
+      const downloadStep = timing.step('rd_wait_for_download');
       while (!isComplete) {
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        if (downloadPolls > 0) {
+          const pollDelay = downloadPolls <= 5 ? RD_DOWNLOAD_POLL_FAST_MS : RD_DOWNLOAD_POLL_SLOW_MS;
+          await wait(pollDelay);
+        }
+
         torrentInfo = await rdClient.getTorrentInfo(rdTorrentId);
+        downloadPolls++;
         
         const progressPercentage = parseFloat((torrentInfo.progress || 0).toFixed(2));
         logger.info(`📊 [Job ${job.id}] RD Progress: ${progressPercentage}%`);
@@ -90,100 +165,149 @@ export const ingestionWorker = new Worker(
           throw new Error(`Real-Debrid download failed: ${torrentInfo.status}`);
         }
       }
+      downloadStep.finish({
+        polls: downloadPolls,
+        rd_status: torrentInfo?.status,
+        rd_progress: torrentInfo?.progress ?? 0,
+      });
 
       // Phase 3.2: Unrestrict the Link
       await supabase.from('videos').update({ status: 'exposing_http', progress: 50 }).eq('id', videoId);
       logger.info(`🔐 [Job ${job.id}] Unrestricting link via Real-Debrid...`);
       
       // Get the finalized links from torrentInfo
+      const finalizedLinkStep = timing.step('rd_refresh_completed_links');
       torrentInfo = await rdClient.getTorrentInfo(rdTorrentId);
+      finalizedLinkStep.finish({
+        link_count: torrentInfo?.links?.length ?? 0,
+      });
       if (!torrentInfo.links || torrentInfo.links.length === 0) {
         throw new Error('Real-Debrid provided no download links after completion.');
       }
       
       // In Real-Debrid, we only selected one target file, so there should be 1 link we care about
+      const unrestrictStep = timing.step('rd_unrestrict_link');
       const unrestrictData = await rdClient.unrestrictLink(torrentInfo.links[0]);
       const fullDownloadUrl = unrestrictData.download;
+      unrestrictStep.finish({
+        filename: unrestrictData.filename,
+        streamable: Boolean(unrestrictData.streamable),
+        filesize: unrestrictData.filesize,
+      });
       
       logger.info(`🔗 [Job ${job.id}] Direct Download URL acquired! Size: ${unrestrictData.filesize} bytes`);
 
-      // Trigger Bunny Stream Ingestion
-      await supabase.from('videos').update({ status: 'bunny_fetching', progress: 55 }).eq('id', videoId);
-      logger.info(`🐇 [Job ${job.id}] Ordering Bunny Stream to fetch video...`);
+      // Mark the title as playback-ready using the direct RD link
+      const containerExt = unrestrictData.filename.split('.').pop()?.toLowerCase() || 'unknown';
+      const isStreamable = containerExt === 'mp4' || containerExt === 'webm';
 
-      const bunnyRes = await bunnyStreamClient.fetchVideo(fullDownloadUrl, videoRecord.title);
-      
-      bunnyVideoId = bunnyRes.id || bunnyRes.videoGuid || bunnyRes.guid;
-
-      if (!bunnyVideoId) {
-        throw new Error(`Bunny CDN failed to return a valid video ID. Raw response: ${JSON.stringify(bunnyRes)}`);
-      }
-      
-      await supabase.from('videos').update({ bunny_video_id: bunnyVideoId }).eq('id', videoId);
-      logger.info(`🏷️ [Job ${job.id}] Assigned Bunny Video ID: ${bunnyVideoId}`);
-
-      // Phase 3.3: Encoding Poller
-      await supabase.from('videos').update({ status: 'encoding' }).eq('id', videoId);
-      logger.info(`🎬 [Job ${job.id}] Polling Bunny Stream for encoding completion...`);
-      
-      let isBunnyDone = false;
-      let lastEncodeProgress = 0;
-      let stalledCount = 0;
-
-      while (!isBunnyDone) {
-        await new Promise((resolve) => setTimeout(resolve, 10000)); // poll every 10s
-        const details = await bunnyStreamClient.getVideoDetails(bunnyVideoId!);
-        
-        logger.info(`📺 [Job ${job.id}] Bunny Processing Status Code: ${details.status}`);
-        
-        const encodeProgress = details.encodeProgress || 0;
-        // Map 0-100 of encodeProgress to 55-99% of global progress
-        const globalProgress = parseFloat((55 + (encodeProgress * 0.44)).toFixed(2));
-        
-        if (globalProgress < 100) {
-            await supabase.from('videos').update({ progress: globalProgress }).eq('id', videoId);
-        }
-        
-        if (details.status === 3 || details.status === 4 || details.status === 6) {
-           isBunnyDone = true;
-        } else if (details.status === 5) {
-           throw new Error('Bunny Stream failed to process the video.');
-        } else {
-           if (encodeProgress === lastEncodeProgress) {
-             stalledCount++;
-             if (stalledCount > 60) { // Stalled for ~10 minutes
-                throw new Error('Bunny Stream encoding seems stalled.');
-             }
-           } else {
-             stalledCount = 0;
-             lastEncodeProgress = encodeProgress;
-           }
-        }
-      }
-
-      // Completion Pipeline
-      logger.info(`🎉 [Job ${job.id}] Bunny processing complete. Video is ready!`);
-      const BUNNY_LIBRARY_ID = process.env.BUNNY_LIBRARY_ID || '';
-      
-      const stream_url = `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${bunnyVideoId}`;
+      const rdPlaybackSource = {
+         type: 'direct',
+         url: fullDownloadUrl,
+         codec: videoRecord.codec || 'Unknown',
+         container: containerExt,
+         mime_type: unrestrictData.mimeType || 'video/mp4',
+         is_streamable: isStreamable,
+         source_type: 'real_debrid'
+      };
 
       await supabase.from('videos').update({ 
-        status: 'completed',
-        stream_url: stream_url,
-        progress: 100
+         status: 'completed',
+         progress: 100,
+         stream_url: fullDownloadUrl,
+         playback_source: rdPlaybackSource
       }).eq('id', videoId);
 
-      // Cleanup Real-Debrid
-      if (rdTorrentId) {
-        logger.info(`🧹 [Job ${job.id}] Cleaning up Real-Debrid torrent...`);
-        try {
-          await rdClient.deleteTorrent(rdTorrentId);
-        } catch (e) {
-          logger.warn(`Could not delete RD torrent ${rdTorrentId}. Ignoring.`);
-        }
+      logger.info(`✅ [Job ${job.id}] Video is ready for playback via Real-Debrid!`);
+
+      let cdnVideoId: string | undefined;
+
+      // Phase 3.3 (Optional): CDN Fallback
+      if (process.env.ENABLE_CDN_FALLBACK === 'true') {
+          logger.info(`🐇 [Job ${job.id}] CDN fallback enabled. Mirroring to CDN...`);
+          await supabase.from('videos').update({ status: 'cdn_fetching', progress: 55 }).eq('id', videoId);
+
+          const cdnRes = await cdnStreamClient.fetchVideo(fullDownloadUrl, videoRecord.title);
+          cdnVideoId = cdnRes.id || cdnRes.videoGuid || cdnRes.guid;
+
+          if (!cdnVideoId) {
+            throw new Error(`CDN failed to return a valid video ID. Raw response: ${JSON.stringify(cdnRes)}`);
+          }
+          
+          await supabase.from('videos').update({ cdn_video_id: cdnVideoId }).eq('id', videoId);
+          
+          await supabase.from('videos').update({ status: 'encoding' }).eq('id', videoId);
+          
+          let isCdnDone = false;
+          let lastEncodeProgress = 0;
+          let stalledCount = 0;
+
+          while (!isCdnDone) {
+            await new Promise((resolve) => setTimeout(resolve, 10000));
+            const details = await cdnStreamClient.getVideoDetails(cdnVideoId!);
+            
+            const encodeProgress = details.encodeProgress || 0;
+            const globalProgress = parseFloat((55 + (encodeProgress * 0.44)).toFixed(2));
+            
+            if (globalProgress < 100) {
+                await supabase.from('videos').update({ progress: globalProgress }).eq('id', videoId);
+            }
+            
+            if (details.status === 3 || details.status === 4 || details.status === 6) {
+               isCdnDone = true;
+            } else if (details.status === 5) {
+               throw new Error('CDN Stream failed to process the video.');
+            } else {
+               if (encodeProgress === lastEncodeProgress) {
+                 stalledCount++;
+                 if (stalledCount > 60) {
+                    throw new Error('CDN Stream encoding seems stalled.');
+                 }
+               } else {
+                 stalledCount = 0;
+                 lastEncodeProgress = encodeProgress;
+               }
+            }
+          }
+
+          logger.info(`🎉 [Job ${job.id}] CDN processing complete.`);
+          const CDN_LIBRARY_ID = process.env.BUNNY_LIBRARY_ID || '';
+          const stream_url = `https://iframe.mediadelivery.net/embed/${CDN_LIBRARY_ID}/${cdnVideoId}`;
+
+          const cdnPlaybackSource = {
+             type: 'cdn',
+             url: stream_url,
+             codec: 'H.264',
+             container: 'hls',
+             mime_type: 'application/x-mpegURL',
+             is_streamable: true,
+             source_type: 'cdn'
+          };
+
+          await supabase.from('videos').update({ 
+            status: 'completed',
+            stream_url: stream_url,
+            progress: 100,
+            playback_source: cdnPlaybackSource
+          }).eq('id', videoId);
+
+          timing.total({
+            rd_torrent_id: rdTorrentId,
+            cdn_video_id: cdnVideoId,
+            playback_source_type: cdnPlaybackSource.type,
+            source_type: cdnPlaybackSource.source_type,
+          });
+
+          return { status: 'success', videoId, cdnVideoId, stream_url, playback_source: cdnPlaybackSource };
       }
 
-      return { status: 'success', videoId, bunnyVideoId, stream_url };
+      timing.total({
+        rd_torrent_id: rdTorrentId,
+        playback_source_type: rdPlaybackSource.type,
+        source_type: rdPlaybackSource.source_type,
+      });
+
+      return { status: 'success', videoId, stream_url: fullDownloadUrl, playback_source: rdPlaybackSource };
 
     } catch (err: any) {
       if (err.name === 'UnrecoverableError' || err.message.includes('Job cancelled') || err.message.includes('Job stopped')) {
@@ -200,16 +324,8 @@ export const ingestionWorker = new Worker(
           status: 'failed', 
           error_message: err.message || 'Unknown error occurred'
         }).eq('id', videoId);
-
-        // Attempt cleanup on final failure
-        if (rdTorrentId) {
-          logger.warn(`🛑 [Job ${job.id}] Deleting Real-Debrid torrent due to final job failure.`);
-          try {
-            await rdClient.deleteTorrent(rdTorrentId);
-          } catch (cleanupErr) { 
-            // ignore
-          }
-        }
+        
+        // We no longer delete the Real-Debrid torrent here (Task 5.2)
       } else {
         await supabase.from('videos').update({ 
           status: 'retrying', 

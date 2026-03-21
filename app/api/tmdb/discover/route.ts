@@ -11,12 +11,17 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const with_genres = searchParams.get('with_genres');
+    const with_watch_providers = searchParams.get('with_watch_providers');
+    const watch_region = searchParams.get('watch_region') || 'US';
     const page = searchParams.get('page') || '1';
     const sort_by = searchParams.get('sort_by') || 'popularity.desc';
 
     let url = `${TMDB_BASE_URL}/discover/movie?include_adult=false&language=en-US&page=${page}&sort_by=${sort_by}&api_key=${TMDB_API_KEY}`;
     if (with_genres) {
       url += `&with_genres=${with_genres}`;
+    }
+    if (with_watch_providers) {
+      url += `&with_watch_providers=${with_watch_providers}&watch_region=${watch_region}`;
     }
 
     const response = await fetch(url, {

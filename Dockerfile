@@ -3,8 +3,8 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install dependencies first for caching purposes
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Copy full source and build
 COPY . .

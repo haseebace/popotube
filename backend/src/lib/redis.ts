@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import { logger } from './logger';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -15,9 +16,9 @@ export const connection = new Redis(redisUrl, {
 });
 
 connection.on('error', (err) => {
-  console.error('Redis connection error:', err);
+  logger.error({ err }, '🚨 [Redis] Connection error:');
 });
 
 connection.on('connect', () => {
-  console.log('Connected to managed Redis successfully.');
+  logger.info('🟢 [Redis] Connected to managed instance successfully.');
 });

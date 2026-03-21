@@ -12,6 +12,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
 } from "@/components/ui/sidebar";
 
@@ -20,7 +23,13 @@ const items = [
   { title: "Search", url: "/admin/search", icon: Home },
   { title: "Library", url: "/admin/library", icon: Library },
   { title: "Downloads", url: "/admin/downloads", icon: Download },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
+];
+
+const settingItems = [
+  { title: "Account Details", url: "/admin/settings" },
+  { title: "Integrations", url: "/admin/settings/integrations" },
+  { title: "Queue & Downloads", url: "/admin/settings/queue" },
+  { title: "Utilities", url: "/admin/settings/utilities" },
 ];
 
 export function AppSidebar() {
@@ -46,6 +55,24 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              <SidebarMenuItem>
+                <SidebarMenuButton className="pointer-events-none mt-4 font-semibold text-muted-foreground/70">
+                  <Settings className="w-4 h-4 mr-2" />
+                  <span>Settings Configuration</span>
+                </SidebarMenuButton>
+                <SidebarMenuSub className="pr-0 mr-0 border-l border-border/50 ml-4">
+                  {settingItems.map((subItem) => (
+                    <SidebarMenuSubItem key={subItem.title}>
+                      <SidebarMenuSubButton asChild isActive={pathname === subItem.url} className={pathname === subItem.url ? "bg-muted" : ""}>
+                        <Link href={subItem.url}>
+                          <span>{subItem.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Download, Link as LinkIcon, Play } from "lucide-react";
+import {
   Pagination,
   PaginationContent,
   PaginationItem,
@@ -62,33 +71,34 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function SkeletonCard() {
+function SkeletonRow() {
   return (
-    <div className="result-card" style={{ pointerEvents: "none" }}>
-      {/* Row 1: title + action placeholders */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-          <Skeleton style={{ height: "16px", width: "85%", borderRadius: "4px" }} />
-          <Skeleton style={{ height: "16px", width: "52%", borderRadius: "4px" }} />
+    <TableRow>
+      <TableCell className="pl-4">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-3/4 rounded-md" />
+          <Skeleton className="h-3 w-1/3 rounded-md" />
         </div>
-        <div style={{ display: "flex", gap: "10px", paddingTop: "2px" }}>
-          <Skeleton style={{ height: "20px", width: "20px", borderRadius: "4px" }} />
-          <Skeleton style={{ height: "20px", width: "20px", borderRadius: "4px" }} />
+      </TableCell>
+      <TableCell><Skeleton className="h-6 w-16 px-2.5 py-0.5 rounded-full" /></TableCell>
+      <TableCell><Skeleton className="h-4 w-12 rounded-md" /></TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-4 w-20 rounded-md" />
+          <Skeleton className="h-3 w-16 rounded-md" />
         </div>
-      </div>
-      {/* Row 2: meta pill placeholders */}
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <Skeleton style={{ height: "20px", width: "72px", borderRadius: "9999px" }} />
-        <Skeleton style={{ height: "20px", width: "60px", borderRadius: "9999px" }} />
-        <Skeleton style={{ height: "20px", width: "55px", borderRadius: "9999px" }} />
-        <Skeleton style={{ height: "20px", width: "70px", borderRadius: "9999px" }} />
-        <Skeleton style={{ height: "20px", width: "48px", borderRadius: "9999px", marginLeft: "auto" }} />
-      </div>
-    </div>
+      </TableCell>
+      <TableCell className="pr-4">
+          <div className="flex flex-col gap-2 items-end">
+             <Skeleton className="h-8 w-24 rounded-md" />
+             <Skeleton className="h-8 w-24 rounded-md" />
+          </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
-function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selectedTmdbId: number | null }) {
+function ResultRow({ result, selectedTmdbId }: { result: TorrentResult, selectedTmdbId: number | null }) {
   const router = useRouter();
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -97,7 +107,7 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
     result.seeders >= 5  ? "seeder-yellow" :
                            "seeder-red";
 
-  async function handleDownloadBunny() {
+  async function handleIngest() {
     if (!result.magnetUri) {
       alert("No magnet link available for this torrent.");
       return;
@@ -107,7 +117,7 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
 
     setIsDownloading(true);
     try {
-      const res = await fetch('/api/backend/bunny-download', {
+      const res = await fetch('/api/backend/ingest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -138,91 +148,82 @@ function ResultCard({ result, selectedTmdbId }: { result: TorrentResult, selecte
   const metadata = parseTorrentMetadata(result.title);
 
   return (
-    <div className="result-card">
-      {/* Row 1: Title + action buttons */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+    <TableRow>
+      <TableCell className="max-w-[300px] xl:max-w-[450px] pl-4">
+        <div className="flex flex-col gap-1.5">
           <a
             href={result.detailsLink ?? result.magnetUri ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="result-card-title-link"
+            className="font-medium hover:underline text-sm leading-snug line-clamp-2"
+            title={result.title}
           >
-            <p className="result-card-title" title={result.title}>
-              {result.title}
-            </p>
+            {result.title}
           </a>
-          <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
-            {metadata.quality !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase">{metadata.quality}</Badge>}
-            {metadata.codec !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase text-muted-foreground">{metadata.codec}</Badge>}
-            {metadata.source !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase text-muted-foreground">{metadata.source}</Badge>}
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+             {metadata.quality !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase py-0 px-1.5 font-normal">{metadata.quality}</Badge>}
+             {metadata.codec !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase py-0 px-1.5 font-normal text-muted-foreground">{metadata.codec}</Badge>}
+             {metadata.source !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase py-0 px-1.5 font-normal text-muted-foreground">{metadata.source}</Badge>}
+             {result.category && <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-normal">{result.category}</Badge>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", flexShrink: 0, paddingTop: "2px" }}>
-          {/* Magnet + download icons */}
-          <div style={{ display: "flex", gap: "10px" }}>
+      </TableCell>
+
+      <TableCell className="w-[120px]">
+        <div className="flex flex-col gap-1.5">
+           <Badge variant={seederVariant as any} className="w-max text-xs font-semibold tracking-tight">▲ {result.seeders} S</Badge>
+           <Badge variant="leecher" asChild={false} className="w-max text-xs font-semibold tracking-tight">▼ {result.leechers} L</Badge>
+        </div>
+      </TableCell>
+
+      <TableCell className="w-[100px] whitespace-nowrap tabular-nums text-sm text-muted-foreground font-medium">
+        {formatBytes(result.size)}
+      </TableCell>
+
+      <TableCell className="w-[140px]">
+         <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">{result.tracker}</span>
+            <span className="text-[11px] text-muted-foreground/80 font-medium">{formatDate(result.publishDate)}</span>
+         </div>
+      </TableCell>
+
+      <TableCell className="w-[140px] pr-4 text-right">
+         <div className="flex flex-col justify-end gap-1.5">
+            <Button 
+               size="sm" 
+               className="h-7 text-xs font-semibold w-full"
+               onClick={handleIngest} 
+               disabled={!result.magnetUri || isDownloading}
+            >
+               {isDownloading ? "Starting..." : "Start Ingest"}
+            </Button>
+            
             {result.magnetUri && (
-              <a href={result.magnetUri} title="Open magnet link" className="result-card-action">🧲</a>
+              <Button 
+                 variant="secondary" 
+                 size="sm" 
+                 className="h-7 text-xs font-semibold w-full bg-secondary/70 hover:bg-secondary flex items-center gap-1.5"
+                 onClick={() => navigator.clipboard.writeText(result.magnetUri!)}
+              >
+                 <LinkIcon className="h-3 w-3" />
+                 Copy Magnet
+              </Button>
             )}
+
             {result.downloadLink && (
-              <a href={result.downloadLink} title="Download .torrent" className="result-card-action">⬇️</a>
+              <Button 
+                 variant="outline" 
+                 size="sm" 
+                 className="h-7 text-xs font-medium w-full flex items-center gap-1.5 border-dashed"
+                 onClick={() => window.open(result.downloadLink!, '_blank')}
+              >
+                 <Download className="h-3 w-3" />
+                 .torrent File
+              </Button>
             )}
-          </div>
-
-          {/* Stacked outline buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadBunny}
-              disabled={isDownloading || !result.magnetUri}
-            >
-              {isDownloading ? "Starting..." : "Download Bunny"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => result.magnetUri && navigator.clipboard.writeText(result.magnetUri)}
-            >
-              Copy Magnet Link
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2: Meta fields */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "14px" }}>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-          <Label>Tracker</Label>
-          <Badge>{result.tracker}</Badge>
-        </div>
-
-        {result.category && (
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <Label>Category</Label>
-            <Badge variant="secondary">{result.category}</Badge>
-          </div>
-        )}
-
-        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-          <Label>Size</Label>
-          <span className="result-card-meta">{formatBytes(result.size)}</span>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-          <Label>Date</Label>
-          <span className="result-card-meta">{formatDate(result.publishDate)}</span>
-        </div>
-
-        {/* Seeders / Leechers — custom Badge variants */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "auto" }}>
-          <Badge variant={seederVariant as any}>▲ {result.seeders} S</Badge>
-          <Badge variant="leecher" asChild={false}>▼ {result.leechers} L</Badge>
-        </div>
-
-      </div>
-    </div>
+         </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -274,18 +275,21 @@ export default function HomePage() {
     }
   }, [query, results, searched, totalResults, currentPage, sortBy, selectedTmdbId]);
 
-  async function handleSearch() {
-    const trimmed = query.trim();
-    if (!trimmed) return;
+  async function handleSearch(manualQuery?: string) {
+    const activeQuery = (manualQuery || query).trim();
+    if (!activeQuery) return;
+
+    if (manualQuery && manualQuery !== query) {
+      setQuery(manualQuery);
+    }
 
     setLoading(true);
     setError(null);
     setResults([]);
     setSearched(true);
-    setCurrentPage(1);
 
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(activeQuery)}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -295,7 +299,9 @@ export default function HomePage() {
 
       setResults(data.results || []);
       setTotalResults(data.totalResults || 0);
-    } catch {
+      setCurrentPage(1);
+    } catch (err: any) {
+      console.error(err);
       setError("Could not reach the search server. Please check your connection.");
     } finally {
       setLoading(false);
@@ -336,12 +342,16 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "60px 16px" }}>
+    <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-10">
 
       <div className="mb-8 space-y-4">
         <div>
           <h2 className="text-xl font-bold mb-2">1. Link Movie to TMDb</h2>
-          <TMDBSearchAutocomplete onSelect={(m) => setSelectedTmdbId(m.id)} />
+          <TMDBSearchAutocomplete onSelect={(m) => {
+             setSelectedTmdbId(m.id);
+             const searchTitle = `${m.title} ${m.release_date?.substring(0,4) || ''}`.trim();
+             handleSearch(searchTitle);
+          }} />
         </div>
 
         <div>
@@ -403,23 +413,48 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Loading skeletons */}
-        {loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        )}
+        {/* Render Table Structure wrapper for both loading and loaded data */}
+        <div className="rounded-md border bg-card">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="pl-4">Title</TableHead>
+                <TableHead className="w-[120px]">Seeds Leeches</TableHead>
+                <TableHead className="w-[100px]">Size</TableHead>
+                <TableHead className="w-[140px]">Tracker</TableHead>
+                <TableHead className="w-[140px] pr-4 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {/* Loading skeletons */}
+              {loading && (
+                <>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <SkeletonRow key={i} />
+                  ))}
+                </>
+              )}
 
-        {/* Result cards */}
-        {!loading && pageResults.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {pageResults.map((result, i) => (
-              <ResultCard key={`${result.infoHash ?? result.title}-${i}`} result={result} selectedTmdbId={selectedTmdbId} />
-            ))}
-          </div>
-        )}
+              {/* Result cards */}
+              {!loading && pageResults.length > 0 && (
+                <>
+                  {pageResults.map((result, i) => (
+                    <ResultRow key={`${result.infoHash ?? result.title}-${i}`} result={result} selectedTmdbId={selectedTmdbId} />
+                  ))}
+                </>
+              )}
+
+              {/* Empty state directly in table using colSpan */}
+              {!loading && searched && pageResults.length === 0 && !error && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No results found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
