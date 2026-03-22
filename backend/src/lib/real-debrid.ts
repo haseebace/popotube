@@ -279,38 +279,42 @@ export class RealDebridClient {
       throw new Error('No files found in torrent');
     }
 
-    const rankedFiles = torrentInfo.files
-      .map((file) => ({
+    // 1. Identify valid candidates (Video files that aren't samples/trailers/extras)
+    const candidates = torrentInfo.files
+      .map(file => ({
         file,
-        score: scoreRdFile(file, expectedTitle),
+        score: scoreRdFile(file, expectedTitle)
       }))
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return b.file.bytes - a.file.bytes;
-      });
+      .filter(item => item.score > 0) // Filters low-value/non-video content using our existing ranking engine
+      .sort((a, b) => b.file.bytes - a.file.bytes); // Sort by size descending
 
-    const selected = rankedFiles[0]?.file;
+    if (candidates.length === 0) {
+      throw new Error('No suitable video content found in this torrent.');
+    }
 
-    if (!selected) {
-      throw new Error('No suitable file found in torrent');
+    // 2. Selection logic: Select all files over 500MB, or just the largest if all are small
+    const MIN_SIZE_BYTES = 500 * 1024 * 1024;
+    let selectedIds: number[] = [];
+
+    const largeFiles = candidates.filter(c => c.file.bytes >= MIN_SIZE_BYTES);
+
+    if (largeFiles.length > 0) {
+      // If there are large files, we take all of them (multi-part movies, or full seasons)
+      selectedIds = largeFiles.map(c => c.file.id);
+    } else {
+      // Fallback: Just the single largest candidate from the available list
+      selectedIds = [candidates[0].file.id];
     }
 
     logger.info({
       rd_torrent_id: id,
-      selected_file_id: selected.id,
-      selected_file_path: selected.path,
-      selected_file_bytes: selected.bytes,
-      candidate_count: rankedFiles.length,
-      top_candidates: rankedFiles.slice(0, 3).map(({ file, score }) => ({
-        id: file.id,
-        path: file.path,
-        bytes: file.bytes,
-        score,
-      })),
-    }, 'Selected Real-Debrid file for download');
+      selected_count: selectedIds.length,
+      selection_mode: largeFiles.length > 0 ? 'multi-large-files' : 'single-largest-fallback',
+      file_ids: selectedIds,
+    }, 'Determining Real-Debrid file selection list');
 
     const params = new URLSearchParams();
-    params.append('files', selected.id.toString());
+    params.append('files', selectedIds.join(','));
     
     await this.client.post(`/torrents/selectFiles/${id}`, params.toString(), {
       headers: {
@@ -348,6 +352,30 @@ export class RealDebridClient {
   async deleteTorrent(id: string): Promise<void> {
     await this.client.delete(`/torrents/delete/${id}`);
   }
+
+  /**
+   * Fetch a list of user downloads from Real-Debrid.
+   */
+  async getDownloads(page: number = 1, limit: number = 50): Promise<{ data: any[], total: number }> {
+    const response = await this.client.get('/downloads', {
+      params: {
+        page,
+        limit
+      }
+    });
+    return {
+      data: response.data,
+      total: parseInt(response.headers['x-total-count'] || '0', 10)
+    };
+  }
+
+  /**
+   * Deletes a link from the user's downloads list.
+   */
+  async deleteDownload(id: string): Promise<void> {
+    await this.client.delete(`/downloads/delete/${id}`);
+  }
 }
 
 export const rdClient = new RealDebridClient();
+

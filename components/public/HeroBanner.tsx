@@ -29,7 +29,7 @@ export default function HeroBanner() {
 
   if (loading || !movie) {
     return (
-      <div className="w-full h-[60vh] md:h-[80vh] bg-muted animate-pulse flex items-center justify-center">
+      <div className="w-full h-[75vh] md:h-[90vh] bg-muted animate-pulse flex items-center justify-center">
         <span className="text-muted-foreground">Loading...</span>
       </div>
     );
@@ -40,7 +40,7 @@ export default function HeroBanner() {
     : '';
 
   return (
-    <div className="relative w-full h-[60vh] md:h-[80vh] flex items-center">
+    <div className="relative w-full h-[75vh] md:h-[90vh] flex items-center">
       {/* Background Image - moved down and repositioned */}
       <div 
         className="absolute inset-0 bg-cover bg-[center_top] bg-no-repeat mt-0"
@@ -55,8 +55,8 @@ export default function HeroBanner() {
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-black/60 to-transparent" />
       
       {/* Content */}
-      <div className="container mx-auto px-4 z-10 w-full mb-10">
-        <div className="max-w-2xl space-y-4">
+      <div className="container mx-auto px-6 md:px-12 z-10 w-full mb-10">
+        <div className="max-w-2xl space-y-6">
           <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
             {movie.title || movie.name}
           </h1>

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { ingestionQueue } from '../queue/ingestion';
 import { parseTorrentMetadata } from '../lib/torrent-parser';
+import { findBestVideoForTmdb, isReusableVideoStatus } from '../lib/video-reuse';
 
 const JACKETT_URL = process.env.JACKETT_URL || 'http://jackett:9117';
 const JACKETT_API_KEY = process.env.JACKETT_API_KEY;
@@ -124,6 +125,25 @@ export default async function (fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'tmdb_id and title are required' });
       }
 
+      const existingVideo = await findBestVideoForTmdb(tmdb_id);
+      if (existingVideo && isReusableVideoStatus(existingVideo.status)) {
+        fastify.log.info({
+          tmdb_id,
+          existing_video_id: existingVideo.id,
+          existing_status: existingVideo.status,
+        }, 'Reusing existing TMDB video before Jackett search');
+
+        return reply.send({
+          message: existingVideo.status === 'completed' ? 'Video already available' : 'Video already in progress',
+          status: existingVideo.status,
+          videoId: existingVideo.id,
+          jobId: existingVideo.bullmq_job_id || null,
+          reusedExisting: true,
+          stream_url: existingVideo.stream_url || null,
+          playback_source: existingVideo.playback_source || null,
+        });
+      }
+
       if (!JACKETT_API_KEY || JACKETT_API_KEY === 'your_api_key_here') {
         return reply.status(500).send({ error: 'Jackett API key not configured.' });
       }
@@ -169,6 +189,25 @@ export default async function (fastify: FastifyInstance) {
 
       if (!info_hash) {
         return reply.status(400).send({ error: 'Invalid magnet link extracted from Jackett' });
+      }
+
+      const existingVideoAfterSearch = await findBestVideoForTmdb(tmdb_id);
+      if (existingVideoAfterSearch && isReusableVideoStatus(existingVideoAfterSearch.status)) {
+        fastify.log.info({
+          tmdb_id,
+          existing_video_id: existingVideoAfterSearch.id,
+          existing_status: existingVideoAfterSearch.status,
+        }, 'Reusing existing TMDB video after Jackett search');
+
+        return reply.send({
+          message: existingVideoAfterSearch.status === 'completed' ? 'Video already available' : 'Video already in progress',
+          status: existingVideoAfterSearch.status,
+          videoId: existingVideoAfterSearch.id,
+          jobId: existingVideoAfterSearch.bullmq_job_id || null,
+          reusedExisting: true,
+          stream_url: existingVideoAfterSearch.stream_url || null,
+          playback_source: existingVideoAfterSearch.playback_source || null,
+        });
       }
 
       fastify.log.info({

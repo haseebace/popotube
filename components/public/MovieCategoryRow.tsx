@@ -49,7 +49,7 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
   if (loading || movies.length === 0) {
     return (
       <div className="w-full py-8 space-y-4">
-        <div className="flex items-center gap-3 px-4 md:px-8 mb-4">
+        <div className="flex items-center gap-3 px-6 md:px-12 mb-4">
           <h2 className="text-2xl font-bold">{title}</h2>
           {badge && (
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: badge.color, color: '#fff' }}>
@@ -57,7 +57,7 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
             </span>
           )}
         </div>
-        <div className="flex px-4 md:px-8 space-x-4 overflow-hidden">
+        <div className="flex px-6 md:px-12 space-x-4 overflow-hidden">
           {Array(5).fill(0).map((_, i) => (
             <div key={i} className="w-[120px] md:w-48 h-[180px] md:h-[288px] bg-muted animate-pulse rounded-xl flex-shrink-0" />
           ))}
@@ -68,7 +68,7 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
 
   return (
     <div className="w-full py-8 group/row relative flex flex-col items-center">
-      <div className="container max-w-full px-4 md:px-8">
+      <div className="container max-w-full px-6 md:px-12">
         <div className="flex items-center gap-3 mb-4">
           <h2 className="text-2xl font-bold">{title}</h2>
           {badge && (
@@ -91,7 +91,7 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
         </Button>
 
         <div 
-          className="flex overflow-x-auto gap-4 px-4 md:px-8 pb-4 snap-x snap-mandatory hide-scrollbar style-scrollbar"
+          className="flex overflow-x-auto gap-4 px-6 md:px-12 pb-4 snap-x snap-mandatory hide-scrollbar style-scrollbar"
           ref={scrollContainerRef}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >

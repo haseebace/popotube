@@ -16,6 +16,7 @@ import libraryRoute from './routes/library';
 import streamRoute from './routes/stream';
 import settingsRoute from './routes/settings';
 import dashboardRoute from './routes/dashboard';
+import downloadsRoute from './routes/downloads';
 
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -38,6 +39,8 @@ fastify.register(libraryRoute);
 fastify.register(streamRoute);
 fastify.register(settingsRoute);
 fastify.register(dashboardRoute);
+fastify.register(downloadsRoute);
+
 
 const serverAdapter = new FastifyAdapter();
 createBullBoard({

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Hls from 'hls.js';
+import { ExternalPlayerDialog } from '@/components/public/ExternalPlayerDialog';
 
 export default function WatchClient({ tmdbId, movieDetails }: { tmdbId: string, movieDetails: any }) {
     const [status, setStatus] = useState<any>(null); // video status in our db
@@ -173,19 +174,30 @@ export default function WatchClient({ tmdbId, movieDetails }: { tmdbId: string, 
                                A streaming media server like MediaFlow is required to watch MKV/AVI files natively, or you can play it locally using VLC.
                              </p>
                              <div className="flex flex-col items-center gap-3 pt-4">
-                                <div className="flex gap-3">
-                                   <a 
-                                      href={`vlc://${status?.playback_source?.url || status?.stream_url}`}
-                                      className="inline-block px-5 py-2.5 bg-[#FF8800] text-white rounded-md text-sm font-semibold hover:bg-[#E67A00] transition-colors shadow-lg"
+                                 <div className="flex gap-3">
+                                   <ExternalPlayerDialog 
+                                     playerName="VLC" 
+                                     url={status?.playback_source?.url || status?.stream_url}
+                                     filename={movieDetails.title}
                                    >
-                                      ▶ Open in VLC
-                                   </a>
-                                   <a 
-                                      href={`iina://weblink?url=${status?.playback_source?.url || status?.stream_url}`}
-                                      className="inline-block px-5 py-2.5 bg-zinc-800 text-white rounded-md text-sm font-semibold hover:bg-zinc-700 transition-colors shadow-lg"
+                                     <button 
+                                        className="inline-block px-5 py-2.5 bg-[#FF8800] text-white rounded-md text-sm font-semibold hover:bg-[#E67A00] transition-colors shadow-lg active:scale-[0.98]"
+                                     >
+                                        ▶ Open in VLC
+                                     </button>
+                                   </ExternalPlayerDialog>
+
+                                   <ExternalPlayerDialog 
+                                     playerName="IINA" 
+                                     url={status?.playback_source?.url || status?.stream_url}
+                                     filename={movieDetails.title}
                                    >
-                                      ▶ Open in IINA (Mac)
-                                   </a>
+                                     <button 
+                                        className="inline-block px-5 py-2.5 bg-zinc-800 text-white rounded-md text-sm font-semibold hover:bg-zinc-700 transition-colors shadow-lg active:scale-[0.98]"
+                                     >
+                                        ▶ Open in IINA (Mac)
+                                     </button>
+                                   </ExternalPlayerDialog>
                                 </div>
                                 <a 
                                    href={status?.playback_source?.url || status?.stream_url}

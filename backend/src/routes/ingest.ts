@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../lib/supabase';
 import { ingestionQueue } from '../queue/ingestion';
+import { findBestVideoForTmdb, isReusableVideoStatus } from '../lib/video-reuse';
 
 interface IngestBody {
   magnet: string;
@@ -21,12 +22,54 @@ export default async function (fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Missing required fields: magnet, size, title' });
       }
 
+      if (tmdb_id) {
+        const existingVideo = await findBestVideoForTmdb(tmdb_id);
+        if (existingVideo && isReusableVideoStatus(existingVideo.status)) {
+          fastify.log.info({
+            tmdb_id,
+            existing_video_id: existingVideo.id,
+            existing_status: existingVideo.status,
+          }, 'Reusing existing TMDB video before ingest insert');
+
+          return reply.send({
+            message: existingVideo.status === 'completed' ? 'Video already available' : 'Video already in progress',
+            status: existingVideo.status,
+            videoId: existingVideo.id,
+            jobId: existingVideo.bullmq_job_id || null,
+            reusedExisting: true,
+            stream_url: existingVideo.stream_url || null,
+            playback_source: existingVideo.playback_source || null,
+          });
+        }
+      }
+
       // Extract info_hash
       const match = magnet.match(/urn:btih:([a-zA-Z0-9]+)/i);
       const info_hash = match ? match[1].toLowerCase() : null;
 
       if (!info_hash) {
         return reply.status(400).send({ error: 'Invalid magnet link' });
+      }
+
+      if (tmdb_id) {
+        const existingVideoBeforeInsert = await findBestVideoForTmdb(tmdb_id);
+        if (existingVideoBeforeInsert && isReusableVideoStatus(existingVideoBeforeInsert.status)) {
+          fastify.log.info({
+            tmdb_id,
+            existing_video_id: existingVideoBeforeInsert.id,
+            existing_status: existingVideoBeforeInsert.status,
+          }, 'Reusing existing TMDB video before DB insert');
+
+          return reply.send({
+            message: existingVideoBeforeInsert.status === 'completed' ? 'Video already available' : 'Video already in progress',
+            status: existingVideoBeforeInsert.status,
+            videoId: existingVideoBeforeInsert.id,
+            jobId: existingVideoBeforeInsert.bullmq_job_id || null,
+            reusedExisting: true,
+            stream_url: existingVideoBeforeInsert.stream_url || null,
+            playback_source: existingVideoBeforeInsert.playback_source || null,
+          });
+        }
       }
 
       // Try to insert

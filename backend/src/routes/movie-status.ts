@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { supabase } from '../lib/supabase';
+import { findBestVideoForTmdb } from '../lib/video-reuse';
 
 export default async function (fastify: FastifyInstance) {
   fastify.get('/api/movie-status', async (request: FastifyRequest<{ Querystring: { tmdb_id?: string } }>, reply: FastifyReply) => {
@@ -10,16 +10,10 @@ export default async function (fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'tmdb_id is required' });
       }
 
-      const { data, error } = await supabase
-        .from('videos')
-        .select('id, status, stream_url, playback_source, progress, title, error_message, quality, codec, source')
-        .eq('tmdb_id', parseInt(tmdbId, 10))
-        .maybeSingle();
-
-      if (error) {
-        fastify.log.error({ err: error }, 'Supabase error checking movie status');
-        return reply.status(500).send({ error: 'Database error' });
-      }
+      const data = await findBestVideoForTmdb(
+        parseInt(tmdbId, 10),
+        'id, status, stream_url, playback_source, progress, title, error_message, quality, codec, source, tmdb_id, bullmq_job_id'
+      );
 
       if (!data) {
         return reply.send({ exists: false });

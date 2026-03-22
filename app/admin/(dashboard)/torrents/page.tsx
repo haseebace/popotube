@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2, Play, RefreshCw } from "lucide-react";
+import { Trash2, Play, RefreshCw, Filter, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { ExternalPlayerDialog } from "@/components/public/ExternalPlayerDialog";
 
 interface RealDebridTorrent {
   id: string;
@@ -41,6 +42,7 @@ interface RealDebridTorrent {
   progress: number;
   status: string;
   added: string;
+  hash: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -58,6 +60,8 @@ export default function LibraryPage() {
   const [totalResults, setTotalResults] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   const RESULTS_PER_PAGE = 50;
   const totalPages = Math.ceil(totalResults / RESULTS_PER_PAGE);
@@ -119,25 +123,105 @@ export default function LibraryPage() {
     );
   }
 
-  const handleCleanup = async (id: string, filename: string) => {
+  const handleCleanup = async (id: string, filename: string, quiet = false) => {
     try {
       const res = await fetch(`/api/backend/library/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete from Real-Debrid");
       
       setTorrents(prev => prev.filter(t => t.id !== id));
-      toast.success("Torrent deleted successfully", {
-        description: filename
-      });
+      if (!quiet) {
+        toast.success("Torrent deleted successfully", {
+            description: filename
+        });
+      }
     } catch (err: any) {
-      toast.error(`Error cleaning up torrent: ${err.message}`);
+      if (!quiet) {
+        toast.error(`Error cleaning up torrent: ${err.message}`);
+      }
+      throw err;
     }
   };
+
+  const handleCleanupDuplicates = async () => {
+    const duplicates = torrents.filter(t => hashMap[t.hash] > 1);
+    if (duplicates.length === 0) return;
+
+    setIsCleaning(true);
+    toast.info(`Cleaning up Torrent duplicates...`);
+
+    const toDelete: {id: string, name: string}[] = [];
+    const seen = new Set<string>();
+
+    // Sort by date (descending) so we keep the newest one
+    const sorted = [...torrents].sort((a, b) => new Date(b.added).getTime() - new Date(a.added).getTime());
+
+    sorted.forEach(t => {
+      const h = t.hash;
+      if (seen.has(h)) {
+        toDelete.push({id: t.id, name: t.filename});
+      } else {
+        seen.add(h);
+      }
+    });
+
+    if (toDelete.length === 0) {
+        toast.success("No cleanup needed!");
+        setIsCleaning(false);
+        return;
+    }
+
+    try {
+        let count = 0;
+        for (const item of toDelete) {
+            await handleCleanup(item.id, item.name, true);
+            count++;
+        }
+        toast.success(`Cleanup complete! Removed ${count} redundant torrents.`);
+    } catch (err) {
+        toast.error("Cleanup partially failed.");
+    } finally {
+        setIsCleaning(false);
+    }
+  };
+
+  // Hashing logic
+  const hashMap = torrents.reduce((acc, t) => {
+    acc[t.hash] = (acc[t.hash] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const displayedTorrents = showOnlyDuplicates 
+    ? torrents.filter(t => hashMap[t.hash] > 1)
+    : torrents;
 
   return (
     <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-10">
       <div className="flex justify-between items-center mb-8">
          <h1 className="text-3xl font-bold tracking-tight text-foreground">Real-Debrid Library</h1>
-         <div className="flex items-center gap-4">
+         <div className="flex items-center gap-3">
+            <Button
+              variant={showOnlyDuplicates ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowOnlyDuplicates(!showOnlyDuplicates)}
+              className={showOnlyDuplicates ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              {showOnlyDuplicates ? "Showing Duplicates" : "Filter Duplicates"}
+            </Button>
+
+            {showOnlyDuplicates && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCleanupDuplicates}
+                disabled={isCleaning}
+                className="bg-primary/10 text-primary hover:bg-primary/20"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Cleanup Page
+              </Button>
+            )}
+
            <Button 
              variant="outline" 
              size="sm" 
@@ -147,7 +231,6 @@ export default function LibraryPage() {
              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing || loading ? 'animate-spin' : ''}`} />
              Sync
            </Button>
-           <div className="text-sm text-muted-foreground hidden md:block">Manual Cleanup Mode</div>
          </div>
       </div>
       
@@ -169,12 +252,25 @@ export default function LibraryPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {torrents.map((t) => (
-                <TableRow key={t.id} className="hover:bg-muted/30 transition-colors">
+              {displayedTorrents.map((t) => {
+                 const isDuplicate = hashMap[t.hash] > 1;
+                 return (
+                <TableRow 
+                    key={t.id} 
+                    className={`hover:bg-muted/30 transition-colors ${isDuplicate ? 'bg-orange-500/5 hover:bg-orange-500/10' : ''}`}
+                >
                   <TableCell className="font-medium align-middle max-w-[200px] sm:max-w-[300px] lg:max-w-[400px]">
-                    <span className="line-clamp-2 break-words block" title={t.filename}>
-                      {t.filename}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="line-clamp-2 break-words block" title={t.filename}>
+                        {t.filename}
+                      </span>
+                      {isDuplicate && (
+                        <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider flex items-center">
+                          <span className="h-1.5 w-1.5 rounded-full bg-orange-600 mr-1.5 animate-pulse" />
+                          Duplicate Torrent (Same Hash)
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   
                   <TableCell className="align-middle">
@@ -193,27 +289,33 @@ export default function LibraryPage() {
                   
                   <TableCell className="align-middle text-center">
                     {t.status === 'downloaded' && (
-                      <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        className="h-8 w-8 rounded-full shadow-sm hover:scale-105 transition-transform"
-                        title="Stream Media (IINA)"
-                        onClick={async () => {
-                           try {
-                             toast.info("Preparing stream link...");
-                             const res = await fetch(`/api/backend/library/${t.id}/stream`);
-                             if (!res.ok) throw new Error("Failed to pull playable link");
-                             const data = await res.json();
-                             if (data.stream_url) {
-                               window.location.assign(`iina://weblink?url=${encodeURIComponent(data.stream_url)}`);
-                             }
-                           } catch(err: any){
-                             toast.error(err.message);
-                           }
+                      <ExternalPlayerDialog
+                        playerName="IINA"
+                        url="" // Dynamically handled below
+                        filename={t.filename}
+                        onLaunch={async () => {
+                          try {
+                            toast.info("Preparing stream link...");
+                            const res = await fetch(`/api/backend/library/${t.id}/stream`);
+                            if (!res.ok) throw new Error("Failed to pull playable link");
+                            const data = await res.json();
+                            if (data.stream_url) {
+                              window.location.assign(`iina://weblink?url=${encodeURIComponent(data.stream_url)}`);
+                            }
+                          } catch(err: any){
+                            toast.error(err.message);
+                          }
                         }}
                       >
-                        <Play className="h-4 w-4 ml-0.5" />
-                      </Button>
+                        <Button 
+                          variant="secondary" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full shadow-sm hover:scale-105 transition-transform"
+                          title="Stream Media (IINA)"
+                        >
+                          <Play className="h-4 w-4 ml-0.5" />
+                        </Button>
+                      </ExternalPlayerDialog>
                     )}
                   </TableCell>
                   
@@ -249,7 +351,8 @@ export default function LibraryPage() {
                     </AlertDialog>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>

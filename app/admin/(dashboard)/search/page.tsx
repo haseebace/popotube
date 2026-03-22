@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 import { Download, Link as LinkIcon, Play } from "lucide-react";
 import {
   Pagination,
@@ -109,7 +110,7 @@ function ResultRow({ result, selectedTmdbId }: { result: TorrentResult, selected
 
   async function handleIngest() {
     if (!result.magnetUri) {
-      alert("No magnet link available for this torrent.");
+      toast.error("No magnet link available for this torrent.");
       return;
     }
 
@@ -136,10 +137,10 @@ function ResultRow({ result, selectedTmdbId }: { result: TorrentResult, selected
         throw new Error(data.error || data.message || 'Failed to start download');
       }
 
-      router.push('/admin/downloads');
+      router.push('/admin/activedownloads');
     } catch (err: any) {
       console.error(err);
-      alert(`Error starting download: ${err.message}`);
+      toast.error(`Error starting download: ${err.message}`);
     } finally {
       setIsDownloading(false);
     }
