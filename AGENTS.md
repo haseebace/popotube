@@ -26,6 +26,9 @@ Both packages use **npm** with lockfiles. Run `npm install` separately in each d
 - **Supabase is soft-required**: The backend warns but starts without valid Supabase credentials. However, any route that touches the DB will fail.
 - **External services**: Full end-to-end flows require Real-Debrid, Bunny Stream, Jackett, and TMDB API keys. The app runs structurally without them but API routes return errors.
 - **Frontend rewrites**: The Next.js config proxies `/api/proxy/*` to `BACKEND_URL` (defaults to `http://127.0.0.1:3001`). No separate CORS config needed for local dev.
+- **Frontend API proxy**: The frontend also proxies `/api/backend/*` to `http://127.0.0.1:3001/api/*` via a catch-all route handler (not a rewrite). The admin dashboard uses this path.
+- **Admin auth**: The `/admin` route tree is protected by Supabase auth. Accessing `/admin` without a session redirects to `/admin/login`.
+- **TMDB API key**: The homepage requires a `TMDB_API_KEY` env var (not listed in the README). Without it, the homepage shows "Loading..." indefinitely as all TMDB API routes return 500.
 
 ### Lint / Build / Test
 
