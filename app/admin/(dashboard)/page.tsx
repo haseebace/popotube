@@ -134,7 +134,7 @@ export default function AdminPage() {
             {loading ? <Skeleton className="h-8 w-24 mb-1" /> : (
               <div className="text-2xl font-bold">{stats?.queue.active ?? 0} Active</div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
+            <span className="text-xs text-muted-foreground mt-1 block">
               {loading ? <Skeleton className="h-3 w-32" /> : (
                 <span className="flex items-center gap-1">
                   <span className="text-amber-500">{stats?.queue.waiting ?? 0} waiting</span>
@@ -142,7 +142,7 @@ export default function AdminPage() {
                   <span className="text-red-400">{stats?.queue.failed ?? 0} failed</span>
                 </span>
               )}
-            </p>
+            </span>
           </CardContent>
         </Card>
 
@@ -178,13 +178,13 @@ export default function AdminPage() {
                 )}
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
+            <span className="text-xs text-muted-foreground mt-1 block">
               {loading ? <Skeleton className="h-3 w-32" /> : (
                 stats?.rdUser
                   ? `${stats.rdUser.points.toLocaleString()} pts · ${daysLeft}d remaining`
                   : 'API key not configured'
               )}
-            </p>
+            </span>
           </CardContent>
         </Card>
 
