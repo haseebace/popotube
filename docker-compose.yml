@@ -1,4 +1,7 @@
-version: '3.8'
+# Jackett, backend, Comet (+ Postgres for Comet). No Next.js — run the frontend on the host: `npm run dev` (port 3000).
+# Use `.env` with localhost URLs for Next on the host (Jackett 9117, Comet 8000, backend 3001). The backend service overrides JACKETT_URL for in-network Docker.
+#
+# Do not run `comet-deploy /docker-compose.yml` at the same time: it also binds port 8000 for Comet.
 
 services:
   jackett:
@@ -24,21 +27,79 @@ services:
       - "3001:3001"
     env_file:
       - ./.env
+    environment:
+      JACKETT_URL: http://jackett:9117
+    depends_on:
+      - jackett
     restart: unless-stopped
 
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - BACKEND_URL=http://backend:3001
-    container_name: popotube-frontend
-    ports:
-      - "3000:3000"
+  comet-postgres:
+    image: postgres:18-alpine
+    container_name: comet-postgres
+    restart: unless-stopped
     environment:
-      - BACKEND_URL=http://backend:3001
+      POSTGRES_USER: comet
+      POSTGRES_PASSWORD: comet
+      POSTGRES_DB: comet
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=384MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+    volumes:
+      - comet_postgres_data:/var/lib/postgresql/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comet -d comet"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  comet:
+    image: g0ldyy/comet
+    container_name: comet
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_TYPE: postgresql
+      DATABASE_URL: postgresql://comet:comet@comet-postgres:5432/comet
+      INDEXER_MANAGER_TYPE: jackett
+      INDEXER_MANAGER_URL: http://jackett:9117
+      INDEXER_MANAGER_API_KEY: ${JACKETT_API_KEY}
+      SCRAPE_JACKETT: "true"
+      DEBRID_TYPE: realdebrid
+      DEBRID_API_KEY: ${REAL_DEBRID_API_KEY}
     env_file:
       - ./.env
-    restart: unless-stopped
+    volumes:
+      - comet_data:/app/data
     depends_on:
-      - backend
+      comet-postgres:
+        condition: service_healthy
+      jackett:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  comet_data:
+  comet_postgres_data:
