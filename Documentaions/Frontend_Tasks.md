@@ -24,12 +24,11 @@ Based on the `Frontend_PRD.md`, here is a detailed, step-by-step breakdown of th
 ## Phase 2: Global UI Layout & Components (Public Route Group)
 4. **Main Layout and Route Group**
    - Set up the public route group layout in `app/(public)/layout.tsx` to keep the public website completely separate from the `/admin` dashboard.
-   - Use standard light mode / default Shadcn styling for now.
+   - Public shell uses a dark cinematic background; inner pages vary.
    
-5. **Global Navbar Component**
-   - Build a `Navbar` component wrapped in a `<header>` or `<nav>` div.
-   - Include the PoPoTube Logo.
-   - Use default Shadcn `NavigationMenu` or `Button` components for links (`/`, `/search`, `/categories`).
+5. **Global Navbar Component** *(done)*
+   - Implemented as `components/public/CinematicNavbar.tsx` (glass header, links to `/`, `/search`, `/categories`).
+   - Wired from `app/(public)/layout.tsx`. The old Shadcn Studio navbar demo (`app/navbar-component-01`, `components/shadcn-studio`) was removed.
 
 6. **Reusable Movie Card Component**
    - Create a basic "Movie Poster" card component. 

@@ -26,6 +26,10 @@ Both packages use **npm** with lockfiles. Run `npm install` separately in each d
 
 **Duplicate Comet:** root `docker-compose.yml` publishes Comet on **port 8000**. Do **not** run the separate `comet-deploy /docker-compose.yml` stack at the same time (it also uses port 8000) — stop one stack or remove the duplicate to avoid clashes.
 
+### UI copy and terminology
+
+User-facing strings should stay consistent. See **[`docs/ui-terminology.md`](docs/ui-terminology.md)** for preferred terms (e.g. ingest, queue, Real-Debrid, search integrations).
+
 ### Key Development Gotchas
 
 - **Redis is required**: The backend will crash at startup if `REDIS_URL` is not set and Redis is not reachable. Start Redis before the backend.
