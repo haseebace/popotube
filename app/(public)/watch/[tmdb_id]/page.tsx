@@ -1,9 +1,6 @@
 import React from "react";
 import WatchClient from "@/components/public/WatchClient";
-import CastRow from "@/components/public/CastRow";
-import MovieCard from "@/components/public/MovieCard";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Star, Clock, CalendarDays } from "lucide-react";
 
 type TMDBGenre = {
@@ -11,25 +8,10 @@ type TMDBGenre = {
   name: string;
 };
 
-type TMDBCastMember = {
-  id: number;
-  name: string;
-  character?: string;
-  profile_path?: string | null;
-};
-
 type TMDBCrewMember = {
   id: number;
   name: string;
   job?: string;
-};
-
-type TMDBSimilarMovie = {
-  id: number;
-  title: string;
-  poster_path?: string | null;
-  release_date?: string;
-  vote_average?: number;
 };
 
 type TMDBMovieDetails = {
@@ -44,11 +26,7 @@ type TMDBMovieDetails = {
   release_date?: string;
   genres?: TMDBGenre[];
   credits?: {
-    cast?: TMDBCastMember[];
     crew?: TMDBCrewMember[];
-  };
-  similar?: {
-    results?: TMDBSimilarMovie[];
   };
 };
 
@@ -59,7 +37,7 @@ async function getMovieDetails(id: string) {
   if (!TMDB_API_KEY) return null;
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/${id}?append_to_response=credits,videos,similar&language=en-US&api_key=${TMDB_API_KEY}`,
+      `${TMDB_BASE_URL}/movie/${id}?append_to_response=credits,videos&language=en-US&api_key=${TMDB_API_KEY}`,
       { next: { revalidate: 3600 } },
     );
     if (!response.ok) return null;
@@ -97,9 +75,6 @@ export default async function WatchPage({
   const posterUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : "";
-
-  const cast = movie.credits?.cast ?? [];
-  const similarMovies: TMDBSimilarMovie[] = movie.similar?.results ?? [];
 
   return (
     <div className="w-full flex flex-col relative min-h-screen">
@@ -150,7 +125,7 @@ export default async function WatchPage({
 
             {/* Stats row */}
             <div className="flex flex-wrap items-center gap-3">
-              {movie.vote_average > 0 && (
+              {movie.vote_average != null && movie.vote_average > 0 && (
                 <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500">
                   <Star className="w-4 h-4 fill-yellow-500" />
                   {movie.vote_average.toFixed(1)}
@@ -159,7 +134,7 @@ export default async function WatchPage({
                   </span>
                 </div>
               )}
-              {movie.runtime > 0 && (
+              {movie.runtime != null && movie.runtime > 0 && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Clock className="w-4 h-4" />
                   {formatRuntime(movie.runtime)}
@@ -207,36 +182,6 @@ export default async function WatchPage({
             })()}
           </div>
         </div>
-
-        {/* ── Cast ── */}
-        {cast.length > 0 && (
-          <div className="w-full max-w-5xl mx-auto space-y-6">
-            <Separator />
-            <CastRow cast={cast} />
-          </div>
-        )}
-
-        {/* ── More Like This ── */}
-        {similarMovies.length > 0 && (
-          <div className="w-full max-w-5xl mx-auto space-y-6">
-            <Separator />
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold">More Like This</h2>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1">
-                {similarMovies.slice(0, 12).map((film) => (
-                  <MovieCard
-                    key={film.id}
-                    id={film.id}
-                    title={film.title}
-                    posterPath={film.poster_path}
-                    releaseDate={film.release_date}
-                    voteAverage={film.vote_average}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

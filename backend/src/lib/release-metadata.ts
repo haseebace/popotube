@@ -6,7 +6,7 @@
  * with `module: commonjs` rewrites `import("pkg")` to `require("pkg")`, which fails at
  * runtime. Loading via `new Function` keeps a native dynamic `import()` in the emit.
  */
-import type { ParsedResult } from '@viren070/parse-torrent-title';
+import type { ParsedResult } from "@viren070/parse-torrent-title";
 
 type ParseTorrentTitleFn = (title: string) => ParsedResult;
 
@@ -26,45 +26,50 @@ export interface ReleaseMetadata {
 }
 
 function normalizeResolution(raw?: string): string {
-  if (!raw) return 'unknown';
+  if (!raw) return "unknown";
   const r = raw.toLowerCase().trim();
-  if (r === '4k' || r === '2160p' || r === 'uhd') return '2160p';
-  if (r === '1080p' || r === '1080i' || r === '720p' || r === '480p') return r;
+  if (r === "4k" || r === "2160p" || r === "uhd") return "2160p";
+  if (r === "1080p" || r === "1080i" || r === "720p" || r === "480p") return r;
   if (/^\d+p$/i.test(raw)) return raw.toLowerCase();
-  return 'unknown';
+  return "unknown";
 }
 
 function normalizeCodec(raw?: string): string {
-  if (!raw) return 'unknown';
-  const c = raw.toLowerCase().replace(/[\s.-]/g, '');
-  if (['x265', 'h265', 'hevc'].includes(c)) return 'HEVC';
-  if (['x264', 'h264', 'avc'].includes(c)) return 'H.264';
-  if (c === 'av1') return 'AV1';
-  if (c === 'xvid' || c === 'divx') return raw.toUpperCase();
-  return 'unknown';
+  if (!raw) return "unknown";
+  const c = raw.toLowerCase().replace(/[\s.-]/g, "");
+  if (["x265", "h265", "hevc"].includes(c)) return "HEVC";
+  if (["x264", "h264", "avc"].includes(c)) return "H.264";
+  if (c === "av1") return "AV1";
+  if (c === "xvid" || c === "divx") return raw.toUpperCase();
+  return "unknown";
 }
 
 function normalizeSource(parsed: ParsedResult): string {
-  const q = (parsed.quality || '').toLowerCase().replace(/[\s.-]/g, '');
+  const q = (parsed.quality || "").toLowerCase().replace(/[\s.-]/g, "");
   const types = (parsed.releaseTypes || []).map((t) => t.toLowerCase());
 
-  const haystack = [q, ...types].join(' ');
+  const haystack = [q, ...types].join(" ");
 
-  if (/\bremux\b/.test(haystack) || q === 'remux') return 'Remux';
-  if (q === 'webdl' || q === 'web-dl') return 'WEB-DL';
-  if (q === 'webrip') return 'WEBRip';
-  if (['bluray', 'bdrip', 'brrip', 'bmdrip', 'bdsr'].includes(q) || haystack.includes('bluray'))
-    return 'Blu-Ray';
-  if (q === 'dvdrip' || q === 'dvd') return 'DVDRIP';
-  if (q === 'hdtv' || q === 'pdtv' || q === 'sdtv') return 'HDTV';
-  if (q === 'hdrip') return 'HDRIP';
-  if (q === 'cam' || q === 'hdcam') return 'CAM';
-  if (q === 'ts' || q === 'telesync' || q === 'hdts') return 'TS';
-  if (q === 'tc' || q === 'telecine') return 'TC';
-  if (parsed.quality && parsed.quality !== 'unknown') {
-    return parsed.quality.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/webdl/gi, 'WEB-DL');
+  if (/\bremux\b/.test(haystack) || q === "remux") return "Remux";
+  if (q === "webdl" || q === "web-dl") return "WEB-DL";
+  if (q === "webrip") return "WEBRip";
+  if (
+    ["bluray", "bdrip", "brrip", "bmdrip", "bdsr"].includes(q) ||
+    haystack.includes("bluray")
+  )
+    return "Blu-Ray";
+  if (q === "dvdrip" || q === "dvd") return "DVDRIP";
+  if (q === "hdtv" || q === "pdtv" || q === "sdtv") return "HDTV";
+  if (q === "hdrip") return "HDRIP";
+  if (q === "cam" || q === "hdcam") return "CAM";
+  if (q === "ts" || q === "telesync" || q === "hdts") return "TS";
+  if (q === "tc" || q === "telecine") return "TC";
+  if (parsed.quality && parsed.quality !== "unknown") {
+    return parsed.quality
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/webdl/gi, "WEB-DL");
   }
-  return 'unknown';
+  return "unknown";
 }
 
 function mapParsedResult(raw: ParsedResult): ReleaseMetadata {
@@ -108,7 +113,9 @@ function mapParsedResult(raw: ParsedResult): ReleaseMetadata {
   };
 }
 
-export async function parseReleaseMetadata(title: string): Promise<ReleaseMetadata> {
+export async function parseReleaseMetadata(
+  title: string,
+): Promise<ReleaseMetadata> {
   const parseTorrentTitle = await parserModule;
   return mapParsedResult(parseTorrentTitle(title));
 }
@@ -125,23 +132,26 @@ export type VideoParseColumns = {
 };
 
 /** DB columns derived from release metadata (nulls for unknown / empty extras). */
-export function releaseMetadataToVideoColumns(meta: ReleaseMetadata): VideoParseColumns {
+export function releaseMetadataToVideoColumns(
+  meta: ReleaseMetadata,
+): VideoParseColumns {
   return {
-    quality: meta.quality !== 'unknown' ? meta.quality : null,
-    codec: meta.codec !== 'unknown' ? meta.codec : null,
-    source: meta.source !== 'unknown' ? meta.source : null,
+    quality: meta.quality !== "unknown" ? meta.quality : null,
+    codec: meta.codec !== "unknown" ? meta.codec : null,
+    source: meta.source !== "unknown" ? meta.source : null,
     season_number: meta.seasonNumber,
     episode_number: meta.episodeNumber,
     release_year: meta.releaseYear,
     release_group: meta.releaseGroup,
-    release_parse_extras: Object.keys(meta.extras).length > 0 ? meta.extras : null,
+    release_parse_extras:
+      Object.keys(meta.extras).length > 0 ? meta.extras : null,
   };
 }
 
 /** Prefer newly parsed values; keep existing row values when parse yields null. */
 export function mergeVideoParseColumns(
   parsed: VideoParseColumns,
-  existing: Partial<VideoParseColumns> | Record<string, unknown>
+  existing: Partial<VideoParseColumns> | Record<string, unknown>,
 ): VideoParseColumns {
   const e = existing as Partial<VideoParseColumns>;
   return {
@@ -152,6 +162,7 @@ export function mergeVideoParseColumns(
     episode_number: parsed.episode_number ?? e.episode_number ?? null,
     release_year: parsed.release_year ?? e.release_year ?? null,
     release_group: parsed.release_group ?? e.release_group ?? null,
-    release_parse_extras: parsed.release_parse_extras ?? e.release_parse_extras ?? null,
+    release_parse_extras:
+      parsed.release_parse_extras ?? e.release_parse_extras ?? null,
   };
 }
