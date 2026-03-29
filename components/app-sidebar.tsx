@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  Home,
   Library,
   Download,
   Settings,
   Server,
+  Search,
   ChevronRight,
   Folder,
 } from "lucide-react";
@@ -33,13 +33,22 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/admin", icon: Server },
-  { title: "Search", url: "/admin/search", icon: Home },
   { title: "Active Downloads", url: "/admin/activedownloads", icon: Download },
   { title: "Torrents", url: "/admin/torrents", icon: Library },
   {
     title: "Downloaded & Unrestricted",
     url: "/admin/downloaded-unrestricted",
     icon: Folder,
+  },
+  {
+    title: "Search Discovery",
+    url: "/admin/search-jackett",
+    icon: Search,
+    subItems: [
+      { title: "Jackett Indexers", url: "/admin/search-jackett" },
+      { title: "Torrentio Engine", url: "/admin/search-torrentio" },
+      { title: "Comet Discovery", url: "/admin/search-comet" },
+    ],
   },
   {
     title: "Settings",
@@ -56,6 +65,18 @@ const items = [
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+type SidebarSubItem = {
+  title: string;
+  url: string;
+};
+
+type SidebarItem = {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  subItems?: SidebarSubItem[];
+};
 
 const sidebarVariants = {
   container: {
@@ -77,41 +98,47 @@ const sidebarVariants = {
   },
   item: {
     hidden: { opacity: 0, x: 20 },
-    show: { 
-      opacity: 1, 
+    show: {
+      opacity: 1,
       x: 0,
       transition: {
         type: "spring" as const,
         stiffness: 300,
-        damping: 30
-      }
+        damping: 30,
+      },
     },
-    exit: { 
-      opacity: 0, 
+    exit: {
+      opacity: 0,
       x: 20,
-      transition: { duration: 0.2 }
+      transition: { duration: 0.2 },
     },
   },
   line: {
     hidden: { scaleY: 0 },
-    show: { 
+    show: {
       scaleY: 1,
       transition: {
         duration: 0.4,
-        ease: "easeInOut" as const
-      }
+        ease: "easeInOut" as const,
+      },
     },
     exit: {
       scaleY: 0,
       transition: {
         duration: 0.2,
-        ease: "easeInOut" as const
-      }
-    }
-  }
+        ease: "easeInOut" as const,
+      },
+    },
+  },
 };
 
-function CollapsibleSidebarItem({ item, pathname }: { item: any, pathname: string }) {
+function CollapsibleSidebarItem({
+  item,
+  pathname,
+}: {
+  item: SidebarItem;
+  pathname: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -124,18 +151,15 @@ function CollapsibleSidebarItem({ item, pathname }: { item: any, pathname: strin
     >
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton
-            isActive={pathname.startsWith(item.url)}
-            asChild
-          >
-            <motion.div 
-              whileHover="hover" 
+          <SidebarMenuButton isActive={pathname.startsWith(item.url)} asChild>
+            <motion.div
+              whileHover="hover"
               className="flex items-center w-full cursor-pointer"
             >
               {item.title === "Settings" ? (
                 <motion.div
                   variants={{
-                    hover: { rotate: 90 }
+                    hover: { rotate: 90 },
                   }}
                   transition={{ duration: 0.4, ease: "easeInOut" }}
                   className="mr-2 flex items-center justify-center shrink-0"
@@ -145,46 +169,62 @@ function CollapsibleSidebarItem({ item, pathname }: { item: any, pathname: strin
               ) : (
                 <item.icon className="size-4 shrink-0 mr-2 text-muted-foreground/80" />
               )}
-              <span className="text-sm font-normal text-foreground/80">{item.title}</span>
-              <ChevronRight className={`ml-auto transition-transform duration-500 text-muted-foreground/50 ${isOpen ? 'rotate-90' : ''}`} />
+              <span className="text-sm font-normal text-foreground/80">
+                {item.title}
+              </span>
+              <ChevronRight
+                className={`ml-auto transition-transform duration-500 text-muted-foreground/50 ${isOpen ? "rotate-90" : ""}`}
+              />
             </motion.div>
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent forceMount>
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {isOpen && (
-              <SidebarMenuSub className="mr-0 pr-0 border-l-0 relative ml-3 pl-3">
-                <motion.div
-                  variants={sidebarVariants.line}
-                  initial="hidden"
-                  animate="show"
-                  exit="exit"
-                  className="absolute left-0 top-0 w-px bg-border origin-top h-full"
-                />
-                <motion.div
-                  variants={sidebarVariants.container}
-                  initial="hidden"
-                  animate="show"
-                  exit="exit"
-                  className="flex flex-col gap-1"
-                >
-                  {item.subItems!.map((sub: any) => (
-                    <motion.div key={sub.title} variants={sidebarVariants.item}>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname === sub.url}
-                        >
-                          <Link href={sub.url} className="flex items-center w-full">
-                            <span className="text-[13px] font-normal text-foreground/60">{sub.title}</span>
-                          </Link>
-
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              </SidebarMenuSub>
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                className="overflow-hidden"
+              >
+                <SidebarMenuSub className="mr-0 pr-0 border-l-0 relative ml-3 pl-3 py-1">
+                  <motion.div
+                    variants={sidebarVariants.line}
+                    initial="hidden"
+                    animate="show"
+                    exit="exit"
+                    className="absolute left-0 top-0 w-px bg-border origin-top h-full"
+                  />
+                  <motion.div
+                    variants={sidebarVariants.container}
+                    initial="hidden"
+                    animate="show"
+                    exit="exit"
+                    className="flex flex-col gap-1"
+                  >
+                    {item.subItems!.map((sub) => (
+                      <motion.div key={sub.title} variants={sidebarVariants.item}>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={pathname === sub.url}
+                          >
+                            <Link
+                              href={sub.url}
+                              className="flex items-center w-full"
+                            >
+                              <span className="text-[13px] font-normal text-foreground/60">
+                                {sub.title}
+                              </span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </SidebarMenuSub>
+              </motion.div>
             )}
           </AnimatePresence>
         </CollapsibleContent>
@@ -203,22 +243,35 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground/50">Application</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground/50">
+            Application
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
                 const hasSubItems = item.subItems && item.subItems.length > 0;
 
                 if (hasSubItems) {
-                  return <CollapsibleSidebarItem key={item.title} item={item} pathname={pathname} />;
+                  return (
+                    <CollapsibleSidebarItem
+                      key={item.title}
+                      item={item}
+                      pathname={pathname}
+                    />
+                  );
                 }
 
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={pathname === item.url}>
-                      <Link href={item.url} className="flex items-center w-full">
+                      <Link
+                        href={item.url}
+                        className="flex items-center w-full"
+                      >
                         <item.icon className="size-4 shrink-0 mr-2 text-muted-foreground/80" />
-                        <span className="text-sm font-normal text-foreground/80">{item.title}</span>
+                        <span className="text-sm font-normal text-foreground/80">
+                          {item.title}
+                        </span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -231,5 +284,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 interface TMDBMovie {
   id: number;
@@ -12,13 +11,15 @@ interface TMDBMovie {
 
 interface TMDBSearchAutocompleteProps {
   onSelect: (movie: TMDBMovie) => void;
+  className?: string;
 }
 
-export function TMDBSearchAutocomplete({ onSelect }: TMDBSearchAutocompleteProps) {
+export function TMDBSearchAutocomplete({ onSelect, className }: TMDBSearchAutocompleteProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<TMDBMovie[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedTitle, setSelectedTitle] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -35,9 +36,12 @@ export function TMDBSearchAutocomplete({ onSelect }: TMDBSearchAutocompleteProps
   // Debounced search
   useEffect(() => {
     const handler = setTimeout(async () => {
-      if (!query.trim()) {
-        setResults([]);
-        setIsOpen(false);
+      // Don't search if query is empty or if it matches the already selected title
+      if (!query.trim() || query === selectedTitle) {
+        if (!query.trim()) {
+           setResults([]);
+           setIsOpen(false);
+        }
         return;
       }
 
@@ -57,21 +61,22 @@ export function TMDBSearchAutocomplete({ onSelect }: TMDBSearchAutocompleteProps
     }, 400);
 
     return () => clearTimeout(handler);
-  }, [query]);
+  }, [query, selectedTitle]);
 
   return (
-    <div ref={wrapperRef} className="relative w-full max-w-sm">
+    <div ref={wrapperRef} className={className || "relative w-full"}>
       <Input
         placeholder="Search TMDb for Movie..."
+        className="h-10 border-muted-foreground/20 focus:border-primary"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => { if (results.length > 0) setIsOpen(true) }}
+        onFocus={() => { if (results.length > 0 && query !== selectedTitle) setIsOpen(true) }}
       />
       
-      {isOpen && (
+      {isOpen && query !== selectedTitle && (
         <div className="absolute top-full left-0 mt-1 w-full bg-popover text-popover-foreground border shadow-lg rounded-md z-50 overflow-hidden">
           {loading && <div className="p-3 text-sm text-muted-foreground">Searching...</div>}
-          {!loading && results.length === 0 && (
+          {!loading && results.length === 0 && query.length > 2 && (
             <div className="p-3 text-sm text-muted-foreground">No movies found.</div>
           )}
           {!loading && results.map((movie) => (
@@ -79,9 +84,12 @@ export function TMDBSearchAutocomplete({ onSelect }: TMDBSearchAutocompleteProps
               key={movie.id}
               className="w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
               onClick={() => {
+                const fullTitle = `${movie.title} (${movie.release_date?.substring(0,4) || 'Unknown'})`;
+                setSelectedTitle(fullTitle);
+                setQuery(fullTitle);
                 onSelect(movie);
-                setQuery(`${movie.title} (${movie.release_date?.substring(0,4) || 'Unknown'})`);
                 setIsOpen(false);
+                setResults([]);
               }}
             >
               <span className="font-semibold">{movie.title}</span> 
