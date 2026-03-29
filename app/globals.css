@@ -4,7 +4,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Tailwind @theme: two layers
+ * 1) Shadcn bridge — maps utilities (bg-primary, etc.) to :root vars below (unchanged light admin theme).
+ * 2) Editorial Noir — PoPoTube cinematic UI (.cursor/rules/Design-system.mdc). Use bg-surface, text-display-lg,
+ *    rounded-noir on public / noir layouts. Does not replace :root.
+ *
+ * Reference layout: docs/movies-page.html (Stitch-derived). When it and the abstract doc differ, match the HTML
+ * for public watch (e.g. Direction sits on bg-surface with border-t border-noir-divider-subtle — not a nested
+ * surface-container-low card). Cast list hairlines use the same token.
+ *
+ * Public noir corner radius: one token `--radius-noir` on :root + class `rounded-noir` (see :root and EOF).
+ */
 @theme inline {
+  /* ─── Shadcn → :root (legacy / admin) ─── */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -45,10 +58,65 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* ─── Editorial Noir — surfaces & content colors (Design-system §2) ─── */
+  --font-body: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  /* Canvas: prefer surface-container-lowest (#0e0e0e) over pure black (Design-system §6) */
+  --color-surface: #131313;
+  --color-on-surface: #e2e2e2;
+  --color-on-surface-variant: #c6c6c6;
+  --color-surface-container-lowest: #0e0e0e;
+  --color-surface-container-low: #1b1b1b;
+  --color-surface-container: #1f1f1f;
+  --color-surface-container-high: #2a2a2a;
+  --color-surface-container-highest: #353535;
+  --color-surface-variant: #353535;
+  --color-outline-variant: #474747;
+  /* Metadata column rules — docs/movies-page.html (Tailwind neutral-800). Not ghost-border (outline-variant 20% on chrome). */
+  --color-noir-divider-subtle: rgb(38 38 38 / 0.4);
+  --color-noir-divider-faint: rgb(38 38 38 / 0.2);
+  /* Doc "secondary" text tone (#c8c6c5) */
+  --color-noir-secondary: #c8c6c5;
+  /* Primary CTA pair (Design-system §5 Buttons) — use when Shadcn primary must stay separate */
+  --color-cinema-primary: #ffffff;
+  --color-cinema-on-primary: #1a1c1c;
+  /* Aliases matching doc vocabulary */
+  --color-noir-primary: #ffffff;
+  --color-noir-on-primary: #1a1c1c;
+  --color-noir-tertiary: #e2e2e2;
+
+  /* Typography scale — Manrope editorial (Design-system §3) */
+  --text-display-lg: 3.5rem;
+  --text-display-lg--line-height: 1;
+  --text-headline-lg: 2rem;
+  --text-headline-lg--line-height: 1.2;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.625;
+  --text-label-md: 0.75rem;
+  --text-label-md--line-height: 1rem;
+  --text-label-sm: 0.6875rem;
+  --text-label-sm--line-height: 1rem;
+
+  /* Letter-spacing (Design-system §3) */
+  --tracking-editorial-display: -0.02em;
+  --tracking-editorial-label: 0.1em;
+
+  /* Section rhythm (Design-system §3 whitespace hints) */
+  --spacing-section-y: 4rem;
+  --spacing-section-y-lg: 5rem;
 }
 
+/*
+ * Shadcn default theme (light). Unchanged — admin & components using bg-primary / default Button
+ * still resolve here. Noir screens opt into bg-surface, cinema-*, etc. from @theme above.
+ */
 :root {
   --radius: 0.625rem;
+  /*
+   * Single control — public noir corners (CTAs, posters, chips, nav search, cards). Edit this only.
+   * Class: `rounded-noir`. Implementation at EOF uses var(); do not duplicate a second pixel value there.
+   */
+  --radius-noir: 10px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -82,8 +150,6 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -91,6 +157,90 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ─── Editorial Noir utilities (Design-system.mdc + docs/movies-page.html) ─── */
+/*
+ * Dividers: prefer surface contrast for section breaks. Inside the watch metadata column, use Tailwind
+ * `border-t border-noir-divider-subtle` (Direction block); cast list rows `border-b border-noir-divider-faint`.
+ */
+
+/* Hero fade into surface (#131313) — §2 Glass & Gradient */
+.hero-gradient {
+  background: linear-gradient(
+    to top,
+    #131313 0%,
+    rgba(19, 19, 19, 0.4) 50%,
+    rgba(19, 19, 19, 0) 100%
+  );
+}
+
+/* Editorial / chrome shadow — HTML reference; related to §4 ambient treatment */
+.editorial-shadow {
+  box-shadow: 0 4px 40px rgba(226, 226, 226, 0.04);
+}
+
+/* Ambient “glow” for floating layers — on-surface #e2e2e2 @ 4%, 40px blur (Design-system §4) */
+.shadow-ambient-noir {
+  box-shadow: 0 0 40px rgba(226, 226, 226, 0.04);
+}
+
+/* Ghost border — outline-variant @ 20% max (Design-system §4) */
+.border-ghost {
+  border-color: rgba(71, 71, 71, 0.2);
+}
+
+/* Nav / overlay glass — surface-variant @ 60% + blur 20px (Design-system §2) */
+.glass-noir {
+  background-color: rgba(53, 53, 53, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Optional metallic CTA sheen — primary → secondary (Design-system §2) */
+.gradient-cta-noir {
+  background-image: linear-gradient(135deg, #ffffff 0%, #c8c6c5 100%);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Labels — ALL CAPS + tracking in markup (Design-system §3, §5) */
+.label-md {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.label-sm {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+/* Composite type roles (use with font-body on a parent) */
+.type-display-lg {
+  font-size: 3.5rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.type-headline-lg {
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.type-body-lg {
+  font-size: 1rem;
+  line-height: 1.625;
 }
 
 /* Result card styles */
@@ -101,7 +251,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
   cursor: default;
 }
 
@@ -142,11 +295,25 @@
 .result-card-action {
   font-size: 16px;
   opacity: 0.7;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
   text-decoration: none;
 }
 
 .result-card-action:hover {
   opacity: 1;
   transform: scale(1.15);
+}
+
+/*
+ * Public noir — UNLAYERED (see earlier thread): avoids @layer utilities being overridden.
+ * Border radius comes only from :root `--radius-noir` (single control).
+ */
+.rounded-noir {
+  border-radius: var(--radius-noir, 4px);
+}
+
+.overflow-hidden.rounded-noir {
+  isolation: isolate;
 }
