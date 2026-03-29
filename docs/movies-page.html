@@ -1,0 +1,438 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-container": "#919191",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary-fixed-dim": "#adabaa",
+              "surface-variant": "#353535",
+              secondary: "#c8c6c5",
+              "on-tertiary": "#1b1b1b",
+              "surface-dim": "#131313",
+              outline: "#919191",
+              "on-error": "#690005",
+              tertiary: "#e2e2e2",
+              "on-error-container": "#ffdad6",
+              "on-tertiary-fixed": "#ffffff",
+              "tertiary-fixed": "#5e5e5e",
+              error: "#ffb4ab",
+              "on-primary-fixed": "#ffffff",
+              "on-surface-variant": "#c6c6c6",
+              "primary-container": "#d4d4d4",
+              "primary-fixed": "#5d5f5f",
+              "surface-bright": "#393939",
+              "on-secondary": "#1c1b1b",
+              "on-secondary-fixed-variant": "#3c3b3b",
+              "on-secondary-container": "#e5e2e1",
+              "secondary-fixed": "#c8c6c5",
+              "inverse-on-surface": "#303030",
+              "on-primary-container": "#000000",
+              surface: "#131313",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "surface-container-highest": "#353535",
+              "on-tertiary-container": "#000000",
+              "surface-container": "#1f1f1f",
+              "on-background": "#e2e2e2",
+              "tertiary-fixed-dim": "#474747",
+              "primary-fixed-dim": "#454747",
+              "error-container": "#93000a",
+              "outline-variant": "#474747",
+              "secondary-container": "#474746",
+              "inverse-primary": "#5d5f5f",
+              "surface-container-high": "#2a2a2a",
+              "surface-container-low": "#1b1b1b",
+              primary: "#ffffff",
+              "surface-tint": "#c6c6c7",
+              "on-primary": "#1a1c1c",
+              "inverse-surface": "#e2e2e2",
+              "on-tertiary-fixed-variant": "#e2e2e2",
+              background: "#131313",
+              "on-surface": "#e2e2e2",
+              "on-secondary-fixed": "#1c1b1b",
+            },
+            fontFamily: {
+              headline: ["Manrope"],
+              body: ["Manrope"],
+              label: ["Manrope"],
+              display: "Manrope",
+            },
+            borderRadius: {
+              DEFAULT: "1rem",
+              lg: "2rem",
+              xl: "3rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+      .hero-gradient {
+        background: linear-gradient(
+          to top,
+          #131313 0%,
+          rgba(19, 19, 19, 0.4) 50%,
+          rgba(19, 19, 19, 0) 100%
+        );
+      }
+      .editorial-shadow {
+        box-shadow: 0 4px 40px rgba(226, 226, 226, 0.04);
+      }
+    </style>
+  </head>
+  <body
+    class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary"
+  >
+    <!-- TopNavBar -->
+    <nav
+      class="fixed top-0 w-full z-50 bg-neutral-900/60 backdrop-blur-xl shadow-[0_4px_40px_rgba(226,226,226,0.04)] font-manrope antialiased tracking-tight"
+    >
+      <div
+        class="flex justify-between items-center px-8 py-4 w-full max-w-none mx-auto"
+      >
+        <div class="text-xl font-bold tracking-tighter text-white uppercase">
+          Noir Cinema
+        </div>
+        <div class="hidden md:flex items-center gap-8">
+          <a
+            class="text-neutral-400 hover:text-white transition-colors"
+            href="#"
+            >Browse</a
+          >
+          <a
+            class="text-neutral-400 hover:text-white transition-colors"
+            href="#"
+            >My Library</a
+          >
+        </div>
+        <div class="flex items-center gap-6">
+          <button
+            class="text-white hover:opacity-80 transition-opacity active:scale-95 duration-200"
+          >
+            <span class="material-symbols-outlined" data-icon="person"
+              >person</span
+            >
+          </button>
+        </div>
+      </div>
+    </nav>
+    <main class="min-h-screen">
+      <!-- Hero Section -->
+      <section class="relative h-[921px] w-full overflow-hidden">
+        <div class="absolute inset-0 bg-surface-container-lowest">
+          <img
+            alt="Cinematic frame of a giant black monolith in a desolate desert landscape under a harsh sun"
+            class="w-full h-full object-cover opacity-60 grayscale"
+            data-alt="dramatic wide shot of a singular black monolith standing in a stark monochrome desert under high-contrast mid-day lighting"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7-pIszqrH8HLoPay_8Wf63-TlKap27nWJlDuRLJ311q_wHDCjEo1WTkPa_iTvYfnzZZ5UEndoL3iTBXtfWHiZ4VjhF3icGxsVeXGK2y9cB2-7vcHE8EdP_25D4Qp7UVCYeiOIBbMFycyU4LkFds0evCezouY8XZ4u4Jx2yFPrgiiVnDWb24q-Y-mfME5z9GoZoQonil6s152dqMUprN1zPNSk9pDj7dKILPXCJsV0Lq_kIiUqgR6DZnYh9OmihgQv22_0sN_mZdI"
+          />
+        </div>
+        <div class="absolute inset-0 hero-gradient"></div>
+        <!-- Hero Content -->
+        <div
+          class="absolute inset-0 flex flex-col justify-end px-8 md:px-20 pb-20"
+        >
+          <div class="max-w-4xl space-y-6">
+            <span class="label-md tracking-[0.2em] uppercase text-secondary"
+              >A Cinematic Original</span
+            >
+            <h1
+              class="text-5xl md:text-8xl font-extrabold tracking-tighter text-white uppercase leading-none"
+            >
+              The Last Monolith
+            </h1>
+            <p
+              class="text-lg md:text-xl text-on-surface-variant max-w-2xl leading-relaxed font-light"
+            >
+              In a world drained of its resonance, a solitary architect
+              discovers the final remaining structure capable of echoing the
+              past. A journey of silence, shadows, and the weight of legacy.
+            </p>
+            <div class="flex flex-wrap items-center gap-4 pt-4">
+              <button
+                class="bg-primary text-on-primary px-10 py-4 flex items-center gap-3 font-bold hover:bg-secondary transition-colors duration-300 rounded-[4px] active:scale-95 duration-200"
+              >
+                <span
+                  class="material-symbols-outlined"
+                  data-icon="play_arrow"
+                  style="font-variation-settings: &quot;FILL&quot; 1"
+                  >play_arrow</span
+                >
+                PLAY
+              </button>
+              <button
+                class="border border-outline-variant/20 px-10 py-4 flex items-center gap-3 font-bold hover:bg-surface-container-high transition-colors duration-300 rounded-[4px] text-white active:scale-95 duration-200"
+              >
+                <span class="material-symbols-outlined" data-icon="add"
+                  >add</span
+                >
+                WATCHLIST
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Metadata & Details -->
+      <section
+        class="px-8 md:px-20 py-16 grid md:grid-cols-12 gap-12 bg-surface"
+      >
+        <!-- Specs Column -->
+        <div class="md:col-span-4 space-y-12">
+          <div class="grid grid-cols-2 gap-8">
+            <div>
+              <h4
+                class="label-md tracking-[0.1em] uppercase text-neutral-500 mb-2"
+              >
+                Year
+              </h4>
+              <p class="text-white text-lg font-medium">2024</p>
+            </div>
+            <div>
+              <h4
+                class="label-md tracking-[0.1em] uppercase text-neutral-500 mb-2"
+              >
+                Genre
+              </h4>
+              <p class="text-white text-lg font-medium">Sci-Fi / Noir</p>
+            </div>
+            <div>
+              <h4
+                class="label-md tracking-[0.1em] uppercase text-neutral-500 mb-2"
+              >
+                Duration
+              </h4>
+              <p class="text-white text-lg font-medium">142 Min</p>
+            </div>
+            <div>
+              <h4
+                class="label-md tracking-[0.1em] uppercase text-neutral-500 mb-2"
+              >
+                Rating
+              </h4>
+              <p class="text-white text-lg font-medium">PG-13</p>
+            </div>
+          </div>
+          <div class="pt-8 border-t border-neutral-800/40">
+            <h4
+              class="label-md tracking-[0.1em] uppercase text-neutral-500 mb-4"
+            >
+              Direction
+            </h4>
+            <p class="text-white text-xl font-bold tracking-tight">
+              KARA VANCE
+            </p>
+          </div>
+        </div>
+        <!-- Cast & Crew Column -->
+        <div class="md:col-span-8 space-y-12">
+          <div class="grid md:grid-cols-2 gap-12">
+            <div class="bg-surface-container-low p-8 rounded-[4px]">
+              <h4
+                class="label-md tracking-[0.1em] uppercase text-neutral-500 mb-6"
+              >
+                Synopsis
+              </h4>
+              <p class="text-on-surface leading-loose font-light">
+                Beyond the flickering horizons of the old world lies the Dead
+                Sector. When Elias Thorne, a veteran archivist, is summoned by
+                an anonymous signal, he finds the Monolith. Not as a monument,
+                but as a living machine waiting for the right frequency to
+                restart time.
+              </p>
+            </div>
+            <div class="space-y-6">
+              <h4 class="label-md tracking-[0.1em] uppercase text-neutral-500">
+                Starring
+              </h4>
+              <ul class="space-y-4">
+                <li
+                  class="flex justify-between items-end border-b border-neutral-800/20 pb-2"
+                >
+                  <span class="text-white font-medium">Julianne Moore</span>
+                  <span class="label-md text-neutral-500">As Elena</span>
+                </li>
+                <li
+                  class="flex justify-between items-end border-b border-neutral-800/20 pb-2"
+                >
+                  <span class="text-white font-medium">Willem Dafoe</span>
+                  <span class="label-md text-neutral-500"
+                    >As The Architect</span
+                  >
+                </li>
+                <li
+                  class="flex justify-between items-end border-b border-neutral-800/20 pb-2"
+                >
+                  <span class="text-white font-medium">Oscar Isaac</span>
+                  <span class="label-md text-neutral-500">As Elias Thorne</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- More Like This (Filmstrip Scroller) -->
+      <section class="py-24 bg-surface-container-lowest">
+        <div class="px-8 md:px-20 mb-12 flex justify-between items-end">
+          <div>
+            <h2
+              class="text-3xl font-bold tracking-tighter uppercase text-white"
+            >
+              Recommended
+            </h2>
+            <p class="label-md text-neutral-500 tracking-[0.1em] mt-1">
+              Curated selection for enthusiasts
+            </p>
+          </div>
+          <div class="hidden md:flex gap-4">
+            <button
+              class="p-3 bg-surface-container-high rounded-[4px] hover:bg-surface-variant transition-colors"
+            >
+              <span class="material-symbols-outlined" data-icon="chevron_left"
+                >chevron_left</span
+              >
+            </button>
+            <button
+              class="p-3 bg-surface-container-high rounded-[4px] hover:bg-surface-variant transition-colors"
+            >
+              <span class="material-symbols-outlined" data-icon="chevron_right"
+                >chevron_right</span
+              >
+            </button>
+          </div>
+        </div>
+        <div class="flex overflow-x-auto gap-6 px-8 md:px-20 no-scrollbar pb-8">
+          <!-- Film Card 1 -->
+          <div class="flex-none w-64 md:w-80 group cursor-pointer">
+            <div
+              class="aspect-[2/3] bg-surface-container mb-4 overflow-hidden rounded-[4px]"
+            >
+              <img
+                alt="Abstract architectural shadows in black and white"
+                class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                data-alt="moody black and white architectural photography with sharp angles and deep shadows on a concrete facade"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuARDEKA4ftNBZwEH_JqEkZy4DyX6RDLO_5tX3Tz7J9BzH-yi4ud8kOgvM27MDcybyPfYQjMPcxjLFGiGKSS06Veutr7wbjq6u8ZNFqdnLlTL01lZXCHdOSqc-2ONZtENNXcJdAjBW7d0r9rqSLgpZoGXG-8B1o9pW0YFfYXHbZR6HAtdsK44lCfbBgw8BuZ4p_QGMOjI2-6bNKkUQm1ISoOM7F4Exqi8OK6mxuUdI-O0WlVlaQXQTmnT45sXrj0A8ezkMc-akFtVX4"
+              />
+            </div>
+            <h3 class="text-white font-bold uppercase tracking-tight">
+              Vortex of Silence
+            </h3>
+            <p class="label-md text-neutral-500">2023 • Thriller</p>
+          </div>
+          <!-- Film Card 2 -->
+          <div class="flex-none w-64 md:w-80 group cursor-pointer">
+            <div
+              class="aspect-[2/3] bg-surface-container mb-4 overflow-hidden rounded-[4px]"
+            >
+              <img
+                alt="Mist rolling over dark mountains at night"
+                class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                data-alt="dark atmospheric landscape of misty mountains at night in high contrast monochrome aesthetic"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuANbgHamNKPmtvFV2u0YXKcDZuYNormIndSWtAvkgeNyjqB7dPlX3odRbxkSgNyVVwJFDbdyLPaRTAS1PBLbhjYV3Kvea8bU18rYK46mZF6gNCqny0Luvn0gDKV6BURgi8bFBOAPZbSNI2t9ftKq62F1uNBfFvK-yt0mOWav6bniuVqxyF0CrqJegPN9K6pvo9dxCQI2GKm5MBAhQIFQmZs1eGIKJ0M_kOLR3S14FZc8lmjFRkzr1IJ0EMKm3iDIWYr0cAecTgwr4Q"
+              />
+            </div>
+            <h3 class="text-white font-bold uppercase tracking-tight">
+              The Gray Exit
+            </h3>
+            <p class="label-md text-neutral-500">2022 • Mystery</p>
+          </div>
+          <!-- Film Card 3 -->
+          <div class="flex-none w-64 md:w-80 group cursor-pointer">
+            <div
+              class="aspect-[2/3] bg-surface-container mb-4 overflow-hidden rounded-[4px]"
+            >
+              <img
+                alt="Cinema projector beam in a dark room"
+                class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                data-alt="a bright beam of light from a vintage cinema projector cutting through a dark smoky theater room"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsKYosSlUYsG3fb3TWku5GHTN3arVZVIX53XseCMi3Prs6S74MyNZkwOW7ARjEelaSwenmgidHXq2YEhdqa-YtXrjrquMRqcW7HiMsZ7mVd5xkNiUUY5ncy_d1zzGOlGZalLicaUuoo_ePWdU-gd8nM8jzQufNWhrzy7XYdXc2GSlo13r4NUvnBgxjI4RZkjgz8DH6WLMhw8BJOaEY4CPLZQO47yUE2Yv4W1P4qJtZSpca2-ggJ77iI_pONMrdIgsyyVtLNOOCs8o"
+              />
+            </div>
+            <h3 class="text-white font-bold uppercase tracking-tight">
+              Fragmented Echo
+            </h3>
+            <p class="label-md text-neutral-500">2024 • Drama</p>
+          </div>
+          <!-- Film Card 4 -->
+          <div class="flex-none w-64 md:w-80 group cursor-pointer">
+            <div
+              class="aspect-[2/3] bg-surface-container mb-4 overflow-hidden rounded-[4px]"
+            >
+              <img
+                alt="A lone figure walking down a foggy urban street"
+                class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                data-alt="cinematic street photography of a silhouette walking through dense fog in a minimalist urban setting"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDU7pc4VbP2XziGxSanNdfQAvtO8-V5nIsiCPp-KosxAfQy10cvYo7cnLrC0-JlqC9m45S-PIGu6gXrOvcAnMCuR1ckrn40pT7nQpukYA-0HKuFyfsnuNlW0WQG_vz_eiQ8fKKGsPaOSdjS-9DDINQwBvrisahfjcy1zemS4KzoabzKW0cTNe8cH5pfCv7aJT_KInXLiUKUvY6UcOZX6A5zp2blLOiHo6gVsfxFWcjKiifXHYVVRzKPCzJ8cRtOgNBLRDcynTN5c6E"
+              />
+            </div>
+            <h3 class="text-white font-bold uppercase tracking-tight">
+              Static Life
+            </h3>
+            <p class="label-md text-neutral-500">2021 • Experimental</p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <!-- Footer -->
+    <footer
+      class="bg-neutral-950 w-full border-t border-neutral-800/20 font-manrope text-xs tracking-[0.1em] uppercase"
+    >
+      <div
+        class="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full gap-8"
+      >
+        <div class="text-neutral-500">
+          © 2024 Noir Cinema. All rights reserved.
+        </div>
+        <div class="flex gap-8">
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Terms</a
+          >
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Privacy</a
+          >
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Instagram</a
+          >
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Letterboxd</a
+          >
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

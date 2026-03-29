@@ -1,0 +1,571 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-container": "#919191",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary-fixed-dim": "#adabaa",
+              "surface-variant": "#353535",
+              secondary: "#c8c6c5",
+              "on-tertiary": "#1b1b1b",
+              "surface-dim": "#131313",
+              outline: "#919191",
+              "on-error": "#690005",
+              tertiary: "#e2e2e2",
+              "on-error-container": "#ffdad6",
+              "on-tertiary-fixed": "#ffffff",
+              "tertiary-fixed": "#5e5e5e",
+              error: "#ffb4ab",
+              "on-primary-fixed": "#ffffff",
+              "on-surface-variant": "#c6c6c6",
+              "primary-container": "#d4d4d4",
+              "primary-fixed": "#5d5f5f",
+              "surface-bright": "#393939",
+              "on-secondary": "#1c1b1b",
+              "on-secondary-fixed-variant": "#3c3b3b",
+              "on-secondary-container": "#e5e2e1",
+              "secondary-fixed": "#c8c6c5",
+              "inverse-on-surface": "#303030",
+              "on-primary-container": "#000000",
+              surface: "#131313",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "surface-container-highest": "#353535",
+              "on-tertiary-container": "#000000",
+              "surface-container": "#1f1f1f",
+              "on-background": "#e2e2e2",
+              "tertiary-fixed-dim": "#474747",
+              "primary-fixed-dim": "#454747",
+              "error-container": "#93000a",
+              "outline-variant": "#474747",
+              "secondary-container": "#474746",
+              "inverse-primary": "#5d5f5f",
+              "surface-container-high": "#2a2a2a",
+              "surface-container-low": "#1b1b1b",
+              primary: "#ffffff",
+              "surface-tint": "#c6c6c7",
+              "on-primary": "#1a1c1c",
+              "inverse-surface": "#e2e2e2",
+              "on-tertiary-fixed-variant": "#e2e2e2",
+              background: "#131313",
+              "on-surface": "#e2e2e2",
+              "on-secondary-fixed": "#1c1b1b",
+            },
+            fontFamily: {
+              headline: ["Manrope"],
+              body: ["Manrope"],
+              label: ["Manrope"],
+              display: "Manrope",
+            },
+            borderRadius: {
+              DEFAULT: "1rem",
+              lg: "2rem",
+              xl: "3rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-background text-on-background font-body selection:bg-primary selection:text-on-primary"
+  >
+    <!-- TopNavBar -->
+    <nav
+      class="fixed top-0 w-full z-50 bg-neutral-900/60 backdrop-blur-xl shadow-[0_4px_40px_rgba(226,226,226,0.04)] font-manrope antialiased tracking-tight"
+    >
+      <div
+        class="flex justify-between items-center px-8 py-4 w-full max-w-none mx-auto"
+      >
+        <div class="flex items-center gap-12">
+          <span class="text-xl font-bold tracking-tighter text-white uppercase"
+            >Noir Cinema</span
+          >
+          <div class="hidden md:flex gap-8 items-center">
+            <a class="text-white border-b-2 border-white pb-1" href="#"
+              >Browse</a
+            >
+            <a
+              class="text-neutral-400 hover:text-white transition-colors"
+              href="#"
+              >My Library</a
+            >
+          </div>
+        </div>
+        <div class="flex items-center gap-6">
+          <div
+            class="hidden md:flex items-center bg-neutral-800/50 px-4 py-1.5 rounded-DEFAULT"
+          >
+            <span class="material-symbols-outlined text-neutral-400 text-sm"
+              >search</span
+            >
+            <input
+              class="bg-transparent border-none focus:ring-0 text-sm text-white placeholder-neutral-500 w-48"
+              placeholder="Search films..."
+              type="text"
+            />
+          </div>
+          <button
+            class="active:scale-95 duration-200 hover:opacity-80 transition-opacity"
+          >
+            <span class="material-symbols-outlined text-white">person</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+    <!-- Main Content -->
+    <main class="pt-0">
+      <!-- Hero Section -->
+      <section
+        class="relative h-[921px] w-full overflow-hidden bg-surface-container-lowest"
+      >
+        <img
+          class="absolute inset-0 w-full h-full object-cover opacity-60"
+          data-alt="Cinematic wide shot of a lone figure in a long coat standing under a flickering street lamp in a misty, dark alley, high contrast noir style"
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCw6XbajYh4mkJj5QnY6B14zumpBYXVJJWX7QaugMNSLOzJOExjnqfFwIVnGeiPidaamDFXzjgnULtavvaV6xlxwqfkXn4hYxdGk6Z4r9ueF3KWKANAoO3tJ6rdwQQLoJPR2wirF4J2wibO32FCvfsP7fT-svCRfMLVHTuV6FdNqIorP5jLKqLgMP1DF-RejXmLcks68r6V8js_CTRq3BKCGUmZAx-xVED9vO2QQs6HCKqIHV1BmdbBk-RpTrV590d58SnG1TM4FE4"
+        />
+        <div
+          class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"
+        ></div>
+        <div class="absolute bottom-0 left-0 w-full px-12 pb-24 z-10">
+          <div class="max-w-3xl space-y-6">
+            <div class="flex items-center gap-4">
+              <span
+                class="label-md tracking-[0.1em] uppercase bg-primary text-on-primary px-3 py-1 font-bold text-[10px] rounded-DEFAULT"
+                >Featured Selection</span
+              >
+              <span
+                class="label-md tracking-[0.1em] uppercase text-secondary font-medium text-[10px]"
+                >Drama / Mystery</span
+              >
+            </div>
+            <h1
+              class="text-6xl md:text-8xl font-extrabold tracking-tighter text-white leading-tight"
+            >
+              THE SILENT<br />CHAMBER
+            </h1>
+            <p
+              class="text-lg text-secondary max-w-xl leading-relaxed font-light"
+            >
+              An atmospheric journey through memory and isolation. Winner of the
+              Grand Jury Prize at the 74th International Noir Film Festival.
+            </p>
+            <div class="flex items-center gap-4 pt-4">
+              <button
+                class="bg-primary text-on-primary px-8 py-3 font-bold flex items-center gap-2 hover:bg-secondary transition-colors duration-300 rounded-DEFAULT group"
+              >
+                <span
+                  class="material-symbols-outlined fill"
+                  style="font-variation-settings: &quot;FILL&quot; 1"
+                  >play_arrow</span
+                >
+                WATCH NOW
+              </button>
+              <button
+                class="border border-outline-variant/40 text-white px-8 py-3 font-bold hover:bg-white/10 transition-colors duration-300 rounded-DEFAULT"
+              >
+                FILM DETAILS
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Movie Carousels -->
+      <div class="space-y-20 py-20 bg-background">
+        <!-- Trending Now -->
+        <section class="pl-12">
+          <div class="flex justify-between items-end mb-8 pr-12">
+            <div>
+              <span
+                class="label-md tracking-[0.2em] uppercase text-neutral-500 font-bold block mb-2"
+                >01</span
+              >
+              <h2
+                class="text-3xl font-bold tracking-tight text-white uppercase"
+              >
+                Trending Now
+              </h2>
+            </div>
+            <a
+              class="text-xs tracking-[0.1em] uppercase text-neutral-400 hover:text-white transition-colors flex items-center gap-2"
+              href="#"
+              >View All
+              <span class="material-symbols-outlined text-sm"
+                >arrow_forward</span
+              ></a
+            >
+          </div>
+          <div class="flex gap-6 overflow-x-auto no-scrollbar pr-12">
+            <!-- Film Card 1 -->
+            <div class="flex-none w-[320px] group cursor-pointer">
+              <div
+                class="relative aspect-[2/3] overflow-hidden rounded-DEFAULT bg-surface-container mb-4"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                  data-alt="Monochrome close-up of vintage film projector lens with dust particles dancing in the light beam, dramatic shadows"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOB_RivtWT-xBIMhgqidmkMT97axD1bcCiDDRavAZC-8k7q4WzZ1dV8aCb74-p5uqp8tQOFSi3EQ4Fi49QVg2pTS9kHH71eOQpzAtv0vSlVBQQ18aSCByQUlFm8XLqoB09KtgDhuoqjA1ZZNF-9J0t2NlhL8uuuL7zjTvxCqg6LxxDr3z9Pj74-KosBJcX0IibcnwaRkOGFzX1NbzYwEbUyS35HN3uSpg1RAIvU7I3Mx-wlryKLm5kGwq9wnlV04Wu3ecE-Xnj6NY"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"
+                ></div>
+              </div>
+              <h3 class="text-white font-bold tracking-tight uppercase">
+                After the Fade
+              </h3>
+              <p class="text-neutral-500 text-xs tracking-wider uppercase mt-1">
+                Thriller / 2024
+              </p>
+            </div>
+            <!-- Film Card 2 -->
+            <div class="flex-none w-[320px] group cursor-pointer">
+              <div
+                class="relative aspect-[2/3] overflow-hidden rounded-DEFAULT bg-surface-container mb-4"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                  data-alt="High contrast architectural shot of a spiral staircase in a modernist building, deep shadows and bright white concrete"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuApz_Ryf92eQsLPM9RJoTf4ALhRGC2tLOn8bP_tCG4lOEk755G-R7Bd6NWR2Xyf_VG_c5_1xNmRRGkfrES-Rz6tkgNedobv6dNOZc3FneF_lMqqt5MZc3FaSrAZKZoxprrRLZmihSYg4J9ddIn5ZQO4ugryO0V26iFi1sLXioG3Ev_NRMbSUvXGqBGoLextqBVnZUWq6xT-ZQtD0ixbJ-EkB5IfquRAO5iaf9S8RGvVDOyyXzqAsuQS8Nl_amTjVYF7jL6uYIfGFMQ"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"
+                ></div>
+              </div>
+              <h3 class="text-white font-bold tracking-tight uppercase">
+                The Descent
+              </h3>
+              <p class="text-neutral-500 text-xs tracking-wider uppercase mt-1">
+                Avant-Garde / 2023
+              </p>
+            </div>
+            <!-- Film Card 3 -->
+            <div class="flex-none w-[320px] group cursor-pointer">
+              <div
+                class="relative aspect-[2/3] overflow-hidden rounded-DEFAULT bg-surface-container mb-4"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                  data-alt="Rainy window overlooking a neon-lit city street at night, blurred lights and water droplets on glass in black and white"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCv4V56aTk6Q53qahF73Pg0tcHu7thko3AKw6cbF9Z7KQqPdHbIHcwL_KEFErQVa5skdxMAy27GsIK70w6MBYC-7EhZR3uWCEjQRktBzJMrnXa7Mz7ReuTRgMZMOsp5xSU1EpaP36eSPQI3qWNFbDCYTF75cmYCB8WhaSyAmfa9_QSiU-29Hqmdf5rBvX71Cwp9mtfd5HdiFE4tAnwmBcfINL9miTdQXQXzk9C9oZflL2_8RTh99IgDlXcsuboNVwVFGChEZutbafY"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"
+                ></div>
+              </div>
+              <h3 class="text-white font-bold tracking-tight uppercase">
+                Midnight Pulse
+              </h3>
+              <p class="text-neutral-500 text-xs tracking-wider uppercase mt-1">
+                Neo-Noir / 2024
+              </p>
+            </div>
+            <!-- Film Card 4 -->
+            <div class="flex-none w-[320px] group cursor-pointer">
+              <div
+                class="relative aspect-[2/3] overflow-hidden rounded-DEFAULT bg-surface-container mb-4"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
+                  data-alt="Abstract shadow of a window frame cast onto a plain white wall, geometric patterns and sharp edges"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAelh0iDMauoRp1sPcam5frbK5LkNUZjGAVoeC4WvrWXxJAAs98UiLzvvRRZG9EHSoftAwU0CuNjP3doUwu864kp_ORIhQupyUAvPpqt826NbxSkcBI3hpd8j2tW7rsC8iMGIx8cayBnaostqC4ykc8X2ybkvg6nnQlFy2DOvjcxP0mjh5LmjO7v_1akAdJyH77itK5ZXVkYFXBuMj6sB1EgLmUAdwWNX3_zSx9SBsDN_YXoqMf55DYURZpA3pBIXCSVnlKUUqRU3E"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"
+                ></div>
+              </div>
+              <h3 class="text-white font-bold tracking-tight uppercase">
+                Void
+              </h3>
+              <p class="text-neutral-500 text-xs tracking-wider uppercase mt-1">
+                Experimental / 2023
+              </p>
+            </div>
+          </div>
+        </section>
+        <!-- Indie Cinema - Asymmetric Grid Layout -->
+        <section class="px-12">
+          <div class="mb-12">
+            <span
+              class="label-md tracking-[0.2em] uppercase text-neutral-500 font-bold block mb-2"
+              >02</span
+            >
+            <h2 class="text-3xl font-bold tracking-tight text-white uppercase">
+              Indie Cinema
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6 h-[600px]">
+            <div
+              class="md:col-span-7 group cursor-pointer relative overflow-hidden rounded-DEFAULT bg-surface-container-low"
+            >
+              <img
+                class="w-full h-full object-cover grayscale transition-transform duration-1000 group-hover:scale-105"
+                data-alt="Wide shot of a vintage theater stage with heavy velvet curtains and a single spotlight, moody cinematic lighting"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0b3KP4lxEn37F6nnIH7-ke7L7OlDrPIi6GHkhpin5BTx3YOPY8olVAcDWNXMfmcCcyA2yNTsIXmpxEDe2g7UCuIu8WlHAyEn8L-cPrmeTMn3VujGChLdlCPCvPxx6E0rCEYDMDtQRnnGsUS6gfHYvD57wFCiiyYJV5VqyKF2kEkYKw3owK9Xq964lf0atKz-IPvHQcN86bXGXs8vNIibGfGbCQe5kvV2f8wU99yWXAH_cT5wUy_XcWlrvnB99AD-4O-tKM7CSDe8"
+              />
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8"
+              >
+                <span
+                  class="label-md tracking-[0.1em] text-primary mb-2 uppercase font-bold text-xs"
+                  >Director's Cut</span
+                >
+                <h3
+                  class="text-4xl font-bold text-white tracking-tighter uppercase"
+                >
+                  Stages of Grief
+                </h3>
+                <p class="text-neutral-300 mt-2 max-w-md line-clamp-2">
+                  An intimate exploration of loss filmed entirely in an
+                  abandoned 1920s playhouse.
+                </p>
+              </div>
+            </div>
+            <div class="md:col-span-5 grid grid-rows-2 gap-6">
+              <div
+                class="group cursor-pointer relative overflow-hidden rounded-DEFAULT bg-surface-container-low"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-1000 group-hover:scale-105"
+                  data-alt="Close-up of a vintage typewriter on a wooden desk, focused on the metal keys and paper, black and white"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbR2chsHOm5o_oLyDDXMhj3tJ4SekI4BS8BxQYDU3Cg9wJPwQPPc0AcF0WxXOwDn8qkPsbEsUDOAWloVI3YzsAj-mfOnrpybS2PoRJmLugfUx4pGvWfV8I-lY3UbVJzsw9qt5r3BRU4U6y6ZGMmosE8KcszhvgyBC5c-JlV0MMFwqbrBLUDcLIcgGwdM3UArs50Kf6_Mjq7myz-d_H8mc1pKnceJpBJMN1hMaiLA4dAhpZpI7GyS__vV-XyOtTxIW677cDTNpcpPE"
+                />
+                <div
+                  class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors p-6 flex flex-col justify-end"
+                >
+                  <h3
+                    class="text-xl font-bold text-white tracking-tight uppercase"
+                  >
+                    The Script
+                  </h3>
+                </div>
+              </div>
+              <div
+                class="group cursor-pointer relative overflow-hidden rounded-DEFAULT bg-surface-container-low"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-1000 group-hover:scale-105"
+                  data-alt="Blurred trees in a thick fog at dawn, silhouettes and atmospheric depth in monochrome"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcGJBn201EPyqH3S0FVXkQMzuEV5P68FmOuEvMQtDeNnRIyYMnU4e7OL6EfFZINeovK8aOdc2s-p5fr7UByfQI6RkQanAkqhJwEhNyFi0o8mXzpHfNtgab6sbSNpxty9CRtM1s5HhEHyzWOsHl_TiZLVf8-qz0ki3o-b8sZ1QJ1MpmhiCB1z_WPvGnRSIGjygqCgjL9p6S_K7WIkii5_c9ug5uzYBd9wmLYbAxYEh0MtWn3YdB4qgLwZA5WjShLTjgTp0-VhkXl2Q"
+                />
+                <div
+                  class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors p-6 flex flex-col justify-end"
+                >
+                  <h3
+                    class="text-xl font-bold text-white tracking-tight uppercase"
+                  >
+                    Static Fog
+                  </h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- New Arrivals -->
+        <section class="pl-12">
+          <div class="flex justify-between items-end mb-8 pr-12">
+            <div>
+              <span
+                class="label-md tracking-[0.2em] uppercase text-neutral-500 font-bold block mb-2"
+                >03</span
+              >
+              <h2
+                class="text-3xl font-bold tracking-tight text-white uppercase"
+              >
+                New Arrivals
+              </h2>
+            </div>
+            <div class="flex gap-2">
+              <button
+                class="p-2 border border-outline-variant/30 rounded-DEFAULT hover:bg-white/10 transition-colors"
+              >
+                <span class="material-symbols-outlined text-white"
+                  >chevron_left</span
+                >
+              </button>
+              <button
+                class="p-2 border border-outline-variant/30 rounded-DEFAULT hover:bg-white/10 transition-colors"
+              >
+                <span class="material-symbols-outlined text-white"
+                  >chevron_right</span
+                >
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-6 overflow-x-auto no-scrollbar pr-12">
+            <!-- Film Card 5 -->
+            <div class="flex-none w-[440px] group cursor-pointer">
+              <div
+                class="relative aspect-video overflow-hidden rounded-DEFAULT bg-surface-container mb-4"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
+                  data-alt="Abstract macro shot of eye iris in black and white, extreme detail and high contrast"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWdAS7DJzN3pzEkJ4YWWawwDqJFzTTl3eCP7lvJ51MPYNHtBGSMau099ilJK4o7mY-ivRrJUw2-ubjPmxFOW7DqPn8lq1o5wzyUGBajqWMdkroFVlemnTm4asVUqfaP1wKRn1iHgphaz6Jt89SHZvDfG34vek2j0jAs5ia4zRMX5lP0nPGBgJkuPYf4lYWvuORYmcjipGGL1fDKntB7yekAvChSPW3sTZeNOyqsbgNPWLQ3ooi2qn-iEIVKqJ3w65A6RHQmox2p-8"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"
+                ></div>
+              </div>
+              <div class="flex justify-between items-start">
+                <div>
+                  <h3 class="text-white font-bold tracking-tight uppercase">
+                    Internal Sight
+                  </h3>
+                  <p
+                    class="text-neutral-500 text-xs tracking-wider uppercase mt-1"
+                  >
+                    Documentary / 2024
+                  </p>
+                </div>
+                <span
+                  class="text-[10px] font-bold tracking-tighter bg-neutral-800 text-white px-2 py-0.5 rounded-DEFAULT"
+                  >4K</span
+                >
+              </div>
+            </div>
+            <!-- Film Card 6 -->
+            <div class="flex-none w-[440px] group cursor-pointer">
+              <div
+                class="relative aspect-video overflow-hidden rounded-DEFAULT bg-surface-container mb-4"
+              >
+                <img
+                  class="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
+                  data-alt="Empty dark street with wet asphalt reflecting distant streetlights, minimalist noir composition"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBT3TtASqoDxptBTehXrlF42lWNdDjO6Dc4hx822JdA-UE7LX8wLPV2vpy5JRUeCBlI_KJ725oLzd79eAruafp8u3rvUN6kMGKTz_8t-IsLH0Ff-ob_c0wq-i1VfGjAMluFBQa-TJhj2n2YVnujmGedfpeyaov5PfGWpKAnX8VYPpQELSt4l68NF_xHFOrVQNERyG16mMsIV45W1nYbYk5R1LpA_xK5pzDj1t1UuRt4KqzYd0i6csPoEGWuaNzWiAYNnAv51wj-ayE"
+                />
+                <div
+                  class="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"
+                ></div>
+              </div>
+              <div class="flex justify-between items-start">
+                <div>
+                  <h3 class="text-white font-bold tracking-tight uppercase">
+                    The Last Bus
+                  </h3>
+                  <p
+                    class="text-neutral-500 text-xs tracking-wider uppercase mt-1"
+                  >
+                    Short Film / 2024
+                  </p>
+                </div>
+                <span
+                  class="text-[10px] font-bold tracking-tighter bg-neutral-800 text-white px-2 py-0.5 rounded-DEFAULT"
+                  >HD</span
+                >
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <!-- Footer -->
+    <footer class="bg-neutral-950 w-full border-t border-neutral-800/20">
+      <div
+        class="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full gap-8"
+      >
+        <div class="flex flex-col items-center md:items-start gap-4">
+          <span class="text-white font-bold tracking-tighter text-lg uppercase"
+            >Noir Cinema</span
+          >
+          <p
+            class="text-neutral-500 font-manrope text-xs tracking-[0.1em] uppercase"
+          >
+            © 2024 Noir Cinema. All rights reserved.
+          </p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-12">
+          <div class="flex flex-col gap-3">
+            <span
+              class="text-[10px] font-black tracking-[0.2em] text-neutral-600 uppercase"
+              >Discover</span
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >Browse</a
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >My Library</a
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >Search</a
+            >
+          </div>
+          <div class="flex flex-col gap-3">
+            <span
+              class="text-[10px] font-black tracking-[0.2em] text-neutral-600 uppercase"
+              >Legal</span
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >Terms</a
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >Privacy</a
+            >
+          </div>
+          <div class="flex flex-col gap-3">
+            <span
+              class="text-[10px] font-black tracking-[0.2em] text-neutral-600 uppercase"
+              >Social</span
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >Instagram</a
+            >
+            <a
+              class="font-manrope text-xs tracking-[0.1em] uppercase text-neutral-500 hover:text-white transition-colors duration-300"
+              href="#"
+              >Letterboxd</a
+            >
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
