@@ -2,11 +2,17 @@
  * Maps @viren070/parse-torrent-title output into PoPoTube DB/UI fields.
  * Keep mapping logic in sync with utils/release-metadata.ts (frontend).
  *
- * ESM-only dependency: load via dynamic import so CommonJS `dist` still runs under Node.
+ * ESM-only dependency: `@viren070/parse-torrent-title` has no CJS export. TypeScript
+ * with `module: commonjs` rewrites `import("pkg")` to `require("pkg")`, which fails at
+ * runtime. Loading via `new Function` keeps a native dynamic `import()` in the emit.
  */
 import type { ParsedResult } from '@viren070/parse-torrent-title';
 
-const parserModule = import('@viren070/parse-torrent-title').then((m) => m.parseTorrentTitle);
+type ParseTorrentTitleFn = (title: string) => ParsedResult;
+
+const parserModule: Promise<ParseTorrentTitleFn> = new Function(
+  'return import("@viren070/parse-torrent-title").then((m) => m.parseTorrentTitle)',
+)() as Promise<ParseTorrentTitleFn>;
 
 export interface ReleaseMetadata {
   quality: string;
