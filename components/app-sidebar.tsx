@@ -33,21 +33,21 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/admin", icon: Server },
-  { title: "Active Downloads", url: "/admin/activedownloads", icon: Download },
+  { title: "Active downloads", url: "/admin/activedownloads", icon: Download },
   { title: "Torrents", url: "/admin/torrents", icon: Library },
   {
-    title: "Downloaded & Unrestricted",
+    title: "Unrestricted downloads",
     url: "/admin/downloaded-unrestricted",
     icon: Folder,
   },
   {
-    title: "Search Discovery",
+    title: "Search",
     url: "/admin/search-jackett",
     icon: Search,
     subItems: [
-      { title: "Jackett Indexers", url: "/admin/search-jackett" },
-      { title: "Torrentio Engine", url: "/admin/search-torrentio" },
-      { title: "Comet Discovery", url: "/admin/search-comet" },
+      { title: "Jackett", url: "/admin/search-jackett" },
+      { title: "Torrentio", url: "/admin/search-torrentio" },
+      { title: "Comet", url: "/admin/search-comet" },
     ],
   },
   {
@@ -55,9 +55,9 @@ const items = [
     url: "/admin/settings",
     icon: Settings,
     subItems: [
-      { title: "Account Details", url: "/admin/settings" },
+      { title: "Account", url: "/admin/settings" },
       { title: "Integrations", url: "/admin/settings/integrations" },
-      { title: "Queue & Downloads", url: "/admin/settings/queue" },
+      { title: "Queue and downloads", url: "/admin/settings/queue" },
       { title: "Utilities", url: "/admin/settings/utilities" },
     ],
   },

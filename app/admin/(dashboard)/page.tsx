@@ -98,8 +98,8 @@ export default function AdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Global Control Center</h1>
-          <p className="text-muted-foreground mt-1 text-sm">System metrics, background transmission queue, and telemetry.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Queue activity, library count, and Real-Debrid connection status.</p>
         </div>
         <Button
           variant="outline"
@@ -109,7 +109,7 @@ export default function AdminPage() {
           className="gap-2"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Syncing...' : 'Refresh'}
+          {refreshing ? 'Refreshing…' : 'Refresh'}
         </Button>
       </div>
 
@@ -117,7 +117,7 @@ export default function AdminPage() {
       {error && (
         <div className="flex items-center space-x-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm">
           <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>Failed to sync with backend — {error}. Is the server running?</span>
+          <span>Couldn&apos;t load dashboard stats ({error}). Check that the backend is running, then try Refresh.</span>
         </div>
       )}
 
@@ -127,7 +127,7 @@ export default function AdminPage() {
         {/* Active Queue */}
         <Card className="border-border/60 shadow-sm border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transmission Pipeline</CardTitle>
+            <CardTitle className="text-sm font-medium">Download queue</CardTitle>
             <CloudRain className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -149,7 +149,7 @@ export default function AdminPage() {
         {/* Library */}
         <Card className="border-border/60 shadow-sm border-l-4 border-l-emerald-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Library Storage</CardTitle>
+            <CardTitle className="text-sm font-medium">Library</CardTitle>
             <HardDrive className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -166,7 +166,7 @@ export default function AdminPage() {
         {/* RD Health */}
         <Card className="border-border/60 shadow-sm border-l-4 border-l-amber-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">API Health & Fidelity</CardTitle>
+            <CardTitle className="text-sm font-medium">Real-Debrid</CardTitle>
             <Zap className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -191,7 +191,7 @@ export default function AdminPage() {
         {/* Completed */}
         <Card className="border-border/60 shadow-sm border-l-4 border-l-purple-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Jobs</CardTitle>
+            <CardTitle className="text-sm font-medium">Completed jobs</CardTitle>
             <Cpu className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
@@ -199,7 +199,7 @@ export default function AdminPage() {
               <div className="text-2xl font-bold">{stats?.queue.completed ?? 0}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">
-              Total successfully processed
+              Total finished jobs recorded
             </p>
           </CardContent>
         </Card>
@@ -209,7 +209,7 @@ export default function AdminPage() {
       {/* Layer 2: Live Transmission Feed */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold tracking-tight">Active Queue Feed</h3>
+          <h3 className="text-xl font-bold tracking-tight">Active downloads</h3>
           <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-none gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             Live
@@ -220,7 +220,7 @@ export default function AdminPage() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="w-[50%]">Media Payload</TableHead>
+                <TableHead className="w-[50%]">Title</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Quality</TableHead>
                 <TableHead className="text-right">Progress</TableHead>
@@ -241,7 +241,7 @@ export default function AdminPage() {
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-12">
                     <div className="flex flex-col items-center gap-2">
                       <CloudRain className="w-8 h-8 text-muted-foreground/40" />
-                      <span className="text-sm">Queue is empty — no active transmissions</span>
+                      <span className="text-sm">Nothing in the queue. Start an ingest from Search to see jobs here.</span>
                     </div>
                   </TableCell>
                 </TableRow>

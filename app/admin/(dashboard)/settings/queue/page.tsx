@@ -18,10 +18,10 @@ export default function QueuePage() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      toast.success("Signed out securely.");
+      toast.success("Signed out");
       router.push('/admin/login');
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign out.");
+      toast.error(error.message || "Couldn't sign out. Try again.");
     }
   };
 
@@ -29,31 +29,31 @@ export default function QueuePage() {
     <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Queue Configuration</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Redis background job concurrent execution constraints.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Queue</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Concurrency and retries for background jobs (Redis / BullMQ).</p>
         </div>
         <Button variant="destructive" onClick={handleSignOut}>
           <LogOut className="w-4 h-4 mr-2" />
-          Sign Out
+          Sign out
         </Button>
       </div>
 
       <Card className="border-border/60 shadow-sm opacity-60">
         <CardHeader>
-          <CardTitle>Background Queue Management</CardTitle>
-          <CardDescription>Configure the concurrent execution speeds of the Redis BullMQ layer. (Coming soon)</CardDescription>
+          <CardTitle>Queue settings</CardTitle>
+          <CardDescription>Coming soon. You&apos;ll set worker concurrency and retry behavior here.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col space-y-1">
-              <Label className="font-medium text-base">Global Auto-Retry</Label>
-              <span className="text-sm text-muted-foreground w-3/4">Automatically attempt to recursively reconnect stalled torrents with failed host links.</span>
+              <Label className="font-medium text-base">Auto-retry failed jobs</Label>
+              <span className="text-sm text-muted-foreground w-3/4">Retry downloads when the host or link fails (placeholder).</span>
             </div>
             <Switch checked disabled />
           </div>
           <Separator />
           <div className="grid gap-2">
-            <Label>Max Concurrent File Downloads</Label>
+            <Label>Max concurrent downloads</Label>
             <Input type="number" value={5} disabled />
           </div>
         </CardContent>

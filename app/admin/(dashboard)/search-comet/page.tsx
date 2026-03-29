@@ -79,12 +79,12 @@ export default function CometSearchPage() {
     setResults([]);
     try {
       const res = await fetch(`/api/comet/search?tmdbId=${tmdbId}`);
-      if (!res.ok) throw new Error("Failed to fetch Comet streams");
+      if (!res.ok) throw new Error("Couldn't load Comet results");
       const data = await res.json();
       setResults(data.results || []);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to fetch Comet streams",
+        err instanceof Error ? err.message : "Couldn't load Comet results",
       );
     } finally {
       setLoading(false);
@@ -115,11 +115,11 @@ export default function CometSearchPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to ingest to RD");
 
-      toast.success("Successfully sent to Real-Debrid via Comet!");
+      toast.success("Sent to Real-Debrid");
       router.push('/admin/activedownloads');
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to ingest to RD",
+        err instanceof Error ? err.message : "Couldn't send to Real-Debrid",
       );
     } finally {
       setIsIngesting(null);
@@ -140,13 +140,13 @@ export default function CometSearchPage() {
       <div className="mb-10 text-center">
          <h1 className="text-4xl font-black tracking-tight mb-2 uppercase text-primary flex items-center justify-center gap-3">
            <Sparkles className="h-8 w-8 text-primary" />
-           Comet Search
+           Comet search
          </h1>
-         <p className="text-muted-foreground font-medium italic">Advanced p2p multi-indexer discovery via Comet engine</p>
+         <p className="text-muted-foreground font-medium">Torrent results from the Comet indexer</p>
       </div>
 
       <div className="mb-10 bg-card border rounded-xl p-6 max-w-2xl mx-auto flex flex-col gap-3">
-        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground block">1. Select Movie from TMDb</Label>
+        <Label className="text-sm font-bold uppercase tracking-widest text-muted-foreground block">1. Choose a TMDb title</Label>
         
         <div className="flex gap-2">
           <TMDBSearchAutocomplete 
@@ -165,7 +165,7 @@ export default function CometSearchPage() {
                 setResults([]);
               }}
             >
-              Clear Link
+              Clear selection
             </Button>
           )}
         </div>
@@ -182,7 +182,7 @@ export default function CometSearchPage() {
       {results.length > 0 && (
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="px-3 py-1 font-bold">{results.length} Advanced Streams Found</Badge>
+              <Badge variant="secondary" className="px-3 py-1 font-bold">{results.length} streams</Badge>
               <Button variant="ghost" size="sm" onClick={() => fetchStreams(selectedMovie?.id)} className="h-8">
                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                  Refresh
@@ -223,7 +223,7 @@ export default function CometSearchPage() {
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead className="pl-6 py-4">Release Filename (Comet)</TableHead>
+              <TableHead className="pl-6 py-4">Release</TableHead>
               <TableHead className="w-[150px]">Seeds</TableHead>
               <TableHead className="w-[120px]">Size</TableHead>
               <TableHead className="w-[150px]">Source</TableHead>
@@ -236,7 +236,7 @@ export default function CometSearchPage() {
             ) : results.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-64 text-center text-muted-foreground">
-                  {selectedMovie ? "No advanced streams found for this movie via Comet." : "Search for a movie to see results from Comet engine."}
+                  {selectedMovie ? "No streams for this title. Try another release or source." : "Pick a TMDb title to load Comet results."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -275,7 +275,7 @@ export default function CometSearchPage() {
                            disabled={isIngesting === res.infoHash}
                            className="h-8 font-bold px-4 w-full max-w-[150px]"
                          >
-                           {isIngesting === res.infoHash ? "Sending..." : "Ingest RD (Comet)"}
+                           {isIngesting === res.infoHash ? "Sending…" : "Send to Real-Debrid"}
                          </Button>
                          <Button
                            variant="ghost"
@@ -283,7 +283,7 @@ export default function CometSearchPage() {
                            className="h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                            onClick={() => {
                              if(res.magnetUri) navigator.clipboard.writeText(res.magnetUri);
-                             toast.success("Magnet copied!");
+                             toast.success("Magnet copied");
                            }}
                          >
                             <LinkIcon className="h-3 w-3 mr-1.5" />

@@ -110,7 +110,7 @@ export default function LibraryPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto p-8 text-gray-400">
-        Loading Real-Debrid Library...
+        Loading library…
       </div>
     );
   }
@@ -118,7 +118,7 @@ export default function LibraryPage() {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto p-8 text-red-400 font-semibold">
-        Error: {error}
+        Couldn&apos;t load library: {error}
       </div>
     );
   }
@@ -130,13 +130,13 @@ export default function LibraryPage() {
       
       setTorrents(prev => prev.filter(t => t.id !== id));
       if (!quiet) {
-        toast.success("Torrent deleted successfully", {
+        toast.success("Torrent removed", {
             description: filename
         });
       }
     } catch (err: any) {
       if (!quiet) {
-        toast.error(`Error cleaning up torrent: ${err.message}`);
+        toast.error(`Couldn't remove torrent: ${err.message}`);
       }
       throw err;
     }
@@ -147,7 +147,7 @@ export default function LibraryPage() {
     if (duplicates.length === 0) return;
 
     setIsCleaning(true);
-    toast.info(`Cleaning up Torrent duplicates...`);
+    toast.info(`Removing duplicate torrents…`);
 
     const toDelete: {id: string, name: string}[] = [];
     const seen = new Set<string>();
@@ -165,7 +165,7 @@ export default function LibraryPage() {
     });
 
     if (toDelete.length === 0) {
-        toast.success("No cleanup needed!");
+        toast.success("No duplicates to remove");
         setIsCleaning(false);
         return;
     }
@@ -176,9 +176,9 @@ export default function LibraryPage() {
             await handleCleanup(item.id, item.name, true);
             count++;
         }
-        toast.success(`Cleanup complete! Removed ${count} redundant torrents.`);
+        toast.success(`Removed ${count} duplicate torrent${count === 1 ? "" : "s"}`);
     } catch (err) {
-        toast.error("Cleanup partially failed.");
+        toast.error("Some duplicates couldn't be removed. Refresh and try again.");
     } finally {
         setIsCleaning(false);
     }
@@ -197,7 +197,7 @@ export default function LibraryPage() {
   return (
     <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-10">
       <div className="flex justify-between items-center mb-8">
-         <h1 className="text-3xl font-bold tracking-tight text-foreground">Real-Debrid Library</h1>
+         <h1 className="text-3xl font-bold tracking-tight text-foreground">Real-Debrid library</h1>
          <div className="flex items-center gap-3">
             <Button
               variant={showOnlyDuplicates ? "default" : "outline"}
@@ -206,7 +206,7 @@ export default function LibraryPage() {
               className={showOnlyDuplicates ? "bg-orange-600 hover:bg-orange-700 text-white" : ""}
             >
               <Filter className="h-4 w-4 mr-2" />
-              {showOnlyDuplicates ? "Showing Duplicates" : "Filter Duplicates"}
+              {showOnlyDuplicates ? "Showing duplicates" : "Show duplicates only"}
             </Button>
 
             {showOnlyDuplicates && (
@@ -218,7 +218,7 @@ export default function LibraryPage() {
                 className="bg-primary/10 text-primary hover:bg-primary/20"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                Cleanup Page
+                Remove duplicates on page
               </Button>
             )}
 
@@ -236,7 +236,7 @@ export default function LibraryPage() {
       
       {torrents.length === 0 ? (
         <div className="text-muted-foreground p-8 text-center border mr-8 rounded-lg bg-card shadow-sm">
-          No active or completed torrents found in your Real-Debrid account.
+          No torrents in this account yet. Add one from Search or ingestion.
         </div>
       ) : (
         <div className="border rounded-md bg-card shadow-sm overflow-hidden">
@@ -267,7 +267,7 @@ export default function LibraryPage() {
                       {isDuplicate && (
                         <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider flex items-center">
                           <span className="h-1.5 w-1.5 rounded-full bg-orange-600 mr-1.5 animate-pulse" />
-                          Duplicate Torrent (Same Hash)
+                          Duplicate hash
                         </span>
                       )}
                     </div>
@@ -295,7 +295,7 @@ export default function LibraryPage() {
                         filename={t.filename}
                         onLaunch={async () => {
                           try {
-                            toast.info("Preparing stream link...");
+                            toast.info("Preparing stream link…");
                             const res = await fetch(`/api/backend/library/${t.id}/stream`);
                             if (!res.ok) throw new Error("Failed to pull playable link");
                             const data = await res.json();
@@ -333,9 +333,9 @@ export default function LibraryPage() {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogTitle>Delete torrent?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete <span className="font-semibold text-foreground">{t.filename}</span> from your Real-Debrid account. This action cannot be undone.
+                            Permanently deletes <span className="font-semibold text-foreground">{t.filename}</span> from Real-Debrid. This can&apos;t be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -344,7 +344,7 @@ export default function LibraryPage() {
                             variant="destructive"
                             onClick={() => handleCleanup(t.id, t.filename)}
                           >
-                            Continue
+                            Delete torrent
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

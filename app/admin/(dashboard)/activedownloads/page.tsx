@@ -123,19 +123,19 @@ export default function DownloadsPage() {
       // Realtime subscription will automatically immediately remove it from the array
     } catch (err: any) {
       console.error(err);
-      alert(`Error cancelling job: ${err.message}`);
+      alert(`Couldn't cancel job: ${err.message}`);
     }
   }
 
   return (
     <div className="max-w-4xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6 tracking-tight text-foreground">Active Downloads</h1>
+      <h1 className="text-3xl font-bold mb-6 tracking-tight text-foreground">Active downloads</h1>
       
       {loading ? (
-        <div className="text-muted-foreground">Loading downloads data...</div>
+        <div className="text-muted-foreground">Loading downloads…</div>
       ) : downloads.length === 0 ? (
         <div className="text-muted-foreground p-8 text-center border rounded-lg bg-card shadow-sm">
-          No active downloads found. Search and add a video to see it here!
+          No active downloads. Start an ingest from Search to see jobs here.
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -183,9 +183,9 @@ export default function DownloadsPage() {
                     <PopoverContent className="w-64 p-4 shadow-xl border-destructive/20" align="end">
                        <div className="space-y-4">
                           <div className="space-y-1">
-                             <h4 className="font-semibold text-sm leading-none">Cancel Download?</h4>
+                             <h4 className="font-semibold text-sm leading-none">Cancel download?</h4>
                              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                This will stop the ingestion and permanantly delete the local files.
+                                Stops ingestion and permanently deletes local files for this job.
                              </p>
                           </div>
                           <div className="flex justify-end gap-2 pt-2 border-t mt-2">
@@ -198,7 +198,7 @@ export default function DownloadsPage() {
                                 className="h-7 text-[10px] px-2 h-7 font-bold shadow-sm"
                                 onClick={() => handleCancelJob(video.id)}
                              >
-                                Yes, Delete
+                                Cancel download
                              </Button>
                           </div>
                        </div>

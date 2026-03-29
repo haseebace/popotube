@@ -54,10 +54,10 @@ export default function SettingsPage() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      toast.success("Signed out securely.");
+      toast.success("Signed out");
       router.push('/admin/login');
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign out.");
+      toast.error(error.message || "Couldn't sign out. Try again.");
     }
   };
 
@@ -65,25 +65,25 @@ export default function SettingsPage() {
     <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Linked Account</h1>
-          <p className="text-muted-foreground mt-1 text-sm">View details of the currently authorized backend provider.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Account</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Real-Debrid profile used by this backend.</p>
         </div>
         <Button variant="destructive" onClick={handleSignOut}>
           <LogOut className="w-4 h-4 mr-2" />
-          Sign Out
+          Sign out
         </Button>
       </div>
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader>
-          <CardTitle>Real-Debrid Profile</CardTitle>
+          <CardTitle>Real-Debrid profile</CardTitle>
           <CardDescription>
-            Your active data pipeline source enabling high-speed download acceleration.
+            Cached downloads and streams use this account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {loading ? (
-            <div className="text-muted-foreground animate-pulse text-sm">Authenticating link...</div>
+            <div className="text-muted-foreground animate-pulse text-sm">Loading profile…</div>
           ) : rdUser ? (
             <div className="flex flex-col space-y-6">
               <div className="flex items-center space-x-6 bg-muted/30 p-4 rounded-xl border border-border/40">
@@ -110,8 +110,8 @@ export default function SettingsPage() {
                   <div className="flex items-center space-x-3">
                     <Activity className="w-5 h-5 text-green-500" />
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">Subscription Validity</span>
-                      <span className="text-xs text-muted-foreground">Premium Expiration Timestamp</span>
+                      <span className="text-sm font-medium">Subscription ends</span>
+                      <span className="text-xs text-muted-foreground">Premium renewal date</span>
                     </div>
                   </div>
                   <div className="font-semibold text-sm">
@@ -127,8 +127,8 @@ export default function SettingsPage() {
                   <div className="flex items-center space-x-3">
                     <Box className="w-5 h-5 text-blue-500" />
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">Accumulated Fidelity</span>
-                      <span className="text-xs text-muted-foreground">Exchange points for days</span>
+                      <span className="text-sm font-medium">Points</span>
+                      <span className="text-xs text-muted-foreground">Real-Debrid rewards balance</span>
                     </div>
                   </div>
                   <div className="font-semibold text-sm">
@@ -138,7 +138,7 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="text-red-400 text-sm">Failed to connect to the configured Real-Debrid token. Check your environment variables.</div>
+            <div className="text-red-400 text-sm">Couldn&apos;t load Real-Debrid account. Set REAL_DEBRID_API_KEY in the environment or under Integrations, then refresh.</div>
           )}
         </CardContent>
       </Card>

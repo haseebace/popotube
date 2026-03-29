@@ -32,7 +32,7 @@ export default function IntegrationsPage() {
   }, []);
 
   const handleSaveRDKey = async () => {
-    if (!rdToken.trim()) return toast.error("API Key cannot be blank.");
+    if (!rdToken.trim()) return toast.error("Enter an API key first.");
     setSaving(true);
     try {
       const res = await fetch('/api/backend/settings/configs', {
@@ -40,8 +40,8 @@ export default function IntegrationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'REAL_DEBRID_API_KEY', value: rdToken.trim() })
       });
-      if (!res.ok) throw new Error("Failed to save configuration");
-      toast.success("Real-Debrid API Key updated securely!");
+      if (!res.ok) throw new Error("Couldn't save settings");
+      toast.success("API key saved");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -52,10 +52,10 @@ export default function IntegrationsPage() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      toast.success("Signed out securely.");
+      toast.success("Signed out");
       router.push('/admin/login');
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign out.");
+      toast.error(error.message || "Couldn't sign out. Try again.");
     }
   };
 
@@ -63,12 +63,12 @@ export default function IntegrationsPage() {
     <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">API Keys</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Provider access tokens mapping logic to external databases.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">API keys</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Tokens for Real-Debrid and other integrations.</p>
         </div>
         <Button variant="destructive" onClick={handleSignOut}>
           <LogOut className="w-4 h-4 mr-2" />
-          Sign Out
+          Sign out
         </Button>
       </div>
 
@@ -76,18 +76,18 @@ export default function IntegrationsPage() {
         <CardHeader>
           <div className="flex items-center space-x-2">
             <Key className="w-5 h-5 text-primary" />
-            <CardTitle>Real-Debrid Integration</CardTitle>
+            <CardTitle>Real-Debrid</CardTitle>
           </div>
           <CardDescription>
-            Privately link your infinite bandwidth payload token. This token remains synced gracefully inside the database and overrides internal `.env` architecture limits.
+            Stored in the database and overrides REAL_DEBRID_API_KEY from the environment when set.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2">
-            <Label className="font-semibold text-muted-foreground">Master API Key</Label>
+            <Label className="font-semibold text-muted-foreground">API key</Label>
             <Input 
               type="password" 
-              placeholder="Paste your private API token from real-debrid.com/apitoken"
+              placeholder="Key from real-debrid.com/apitoken"
               value={rdToken}
               onChange={(e) => setRdToken(e.target.value)}
             />
@@ -96,7 +96,7 @@ export default function IntegrationsPage() {
         <CardFooter className="bg-muted/30 border-t py-4 justify-end">
           <Button onClick={handleSaveRDKey} disabled={saving}>
             <Save className="w-4 h-4 mr-2" />
-            {saving ? "Encrypting..." : "Save API Key"}
+            {saving ? "Saving…" : "Save API key"}
           </Button>
         </CardFooter>
       </Card>

@@ -169,7 +169,7 @@ function ResultRow({
         );
       }
 
-      toast.success(data.message || "Video submitted successfully!");
+      toast.success(data.message || "Added to queue");
 
       console.log("🔀 [Ingest] Redirecting to /admin/activedownloads");
       router.push("/admin/activedownloads");
@@ -177,7 +177,7 @@ function ResultRow({
       console.error(err);
       const message =
         err instanceof Error ? err.message : "Failed to start download";
-      toast.error(`Error starting download: ${message}`);
+      toast.error(`Couldn't start download: ${message}`);
     } finally {
       setIsDownloading(false);
     }
@@ -256,7 +256,7 @@ function ResultRow({
             onClick={handleIngest}
             disabled={!result.magnetUri || isDownloading}
           >
-            {isDownloading ? "Starting..." : "Start Ingest"}
+            {isDownloading ? "Sending…" : "Send to Real-Debrid"}
           </Button>
 
           {result.magnetUri && (
@@ -387,7 +387,7 @@ export default function HomePage() {
     } catch (err) {
       console.error(err);
       setError(
-        "Could not reach the search server. Please check your connection.",
+        "Couldn't reach the search service. Check Jackett and your network, then try again.",
       );
     } finally {
       setLoading(false);
@@ -446,10 +446,10 @@ export default function HomePage() {
     <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-10">
       <div className="mb-10 text-center">
         <h1 className="text-4xl font-black tracking-tight mb-2 uppercase  text-primary">
-          Jackett Search
+          Jackett search
         </h1>
         <p className="text-muted-foreground font-medium">
-          Aggregated torrent discovery across 50+ private and public indexers
+          Search your Jackett indexers from here
         </p>
       </div>
 
@@ -457,7 +457,7 @@ export default function HomePage() {
         {/* Step 1: TMDb Link */}
         <div className="flex-1 w-full flex flex-col gap-3">
           <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            1. Metadata Link (Optional)
+            1. Link TMDb (optional)
           </Label>
 
           <div className="flex gap-2">
@@ -484,7 +484,7 @@ export default function HomePage() {
                   setLinkedMovieTitle(null);
                 }}
               >
-                Clear Link
+                Clear selection
               </Button>
             )}
           </div>
@@ -507,13 +507,13 @@ export default function HomePage() {
         {/* Step 2: Jackett Search */}
         <div className="flex-[1.5] w-full flex flex-col gap-3">
           <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            2. Search Keywords (Jackett Indexers)
+            2. Search Jackett
           </Label>
           <div className="flex gap-2">
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Movie name, resolution, or group..."
+              placeholder="Title, release group, quality…"
               value={query}
               className="h-10 border-muted-foreground/20 focus:border-primary"
               onChange={(e) => setQuery(e.target.value)}
@@ -524,7 +524,7 @@ export default function HomePage() {
               disabled={loading}
               className="px-8 h-10 font-bold"
             >
-              {loading ? "Searching…" : "Find Torrents"}
+              {loading ? "Searching…" : "Search"}
             </Button>
           </div>
         </div>
@@ -535,7 +535,7 @@ export default function HomePage() {
         {/* Error */}
         {error && (
           <div style={{ marginBottom: "16px", color: "red", fontSize: "14px" }}>
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -587,7 +587,7 @@ export default function HomePage() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead className="pl-4">Title</TableHead>
-                <TableHead className="w-[120px]">Seeds Leeches</TableHead>
+                <TableHead className="w-[120px]">Peers</TableHead>
                 <TableHead className="w-[100px]">Size</TableHead>
                 <TableHead className="w-[140px]">Tracker</TableHead>
                 <TableHead className="w-[140px] pr-4 text-right">
@@ -622,7 +622,7 @@ export default function HomePage() {
               {!loading && searched && pageResults.length === 0 && !error && (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    No results found.
+                    No results. Try different keywords or check Jackett.
                   </TableCell>
                 </TableRow>
               )}
