@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2, Play, RefreshCw, ExternalLink, Filter, Sparkles } from "lucide-react";
+import { Trash2, Play, RefreshCw, ExternalLink, Filter, Sparkles, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -46,6 +47,10 @@ interface RealDebridDownload {
   generated: string;
 }
 
+type ErrorWithMessage = {
+  message: string;
+};
+
 function formatBytes(bytes: number): string {
   if (!bytes || bytes === 0) return "Unknown";
   const sizes = ["B", "KB", "MB", "GB", "TB"];
@@ -63,6 +68,7 @@ export default function DownloadedUnrestrictedPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const RESULTS_PER_PAGE = 50;
   const totalPages = Math.ceil(totalResults / RESULTS_PER_PAGE);
@@ -78,8 +84,12 @@ export default function DownloadedUnrestrictedPage() {
         const data = await res.json();
         setDownloads(data.downloads || []);
         setTotalResults(data.total || 0);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : (err as ErrorWithMessage).message || "Failed to fetch downloads";
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -105,9 +115,13 @@ export default function DownloadedUnrestrictedPage() {
           description: filename
         });
       }
-    } catch (err: any) {
+    } catch (err) {
       if (!quiet) {
-        toast.error(`Error removing download: ${err.message}`);
+        const message =
+          err instanceof Error
+            ? err.message
+            : (err as ErrorWithMessage).message || "Failed to remove download";
+        toast.error(`Error removing download: ${message}`);
       }
       throw err;
     }
@@ -148,7 +162,7 @@ export default function DownloadedUnrestrictedPage() {
             count++;
         }
         toast.success(`Cleanup complete! Removed ${count} redundant links.`);
-    } catch (err) {
+    } catch {
         toast.error("Cleanup partially failed.");
     } finally {
         setIsCleaning(false);
@@ -162,9 +176,15 @@ export default function DownloadedUnrestrictedPage() {
     return acc;
   }, {} as Record<string, number>);
 
-  const displayedDownloads = showOnlyDuplicates 
-    ? downloads.filter(d => fingerprintMap[`${d.filename}-${d.filesize}`] > 1)
-    : downloads;
+  const displayedDownloads = downloads.filter(d => {
+    const matchesSearch = d.filename.toLowerCase().includes(searchQuery.toLowerCase());
+    const isDupe = fingerprintMap[`${d.filename}-${d.filesize}`] > 1;
+    
+    if (showOnlyDuplicates) {
+      return matchesSearch && isDupe;
+    }
+    return matchesSearch;
+  });
 
   function getPageNumbers(): (number | "ellipsis")[] {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -196,9 +216,21 @@ export default function DownloadedUnrestrictedPage() {
 
   return (
     <div className="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-10">
-      <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Downloaded & Unrestricted</h1>
-         <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground whitespace-nowrap">Downloaded & Unrestricted</h1>
+          
+          <div className="flex flex-col sm:flex-row items-center w-full md:w-auto gap-3">
+            <div className="relative w-full sm:w-64 md:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by filename..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-card shadow-sm border-muted-foreground/20"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
            <Button
              variant={showOnlyDuplicates ? "default" : "outline"}
              size="sm"
@@ -231,12 +263,13 @@ export default function DownloadedUnrestrictedPage() {
              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing || loading ? 'animate-spin' : ''}`} />
              Sync
            </Button>
+          </div>
          </div>
       </div>
       
       {downloads.length === 0 ? (
         <div className="text-muted-foreground p-8 text-center border mr-8 rounded-lg bg-card shadow-sm">
-          No history found. All restricted links and downloads you've generated will appear here.
+          No history found. All restricted links and downloads you&apos;ve generated will appear here.
         </div>
       ) : (
         <div className="border rounded-md bg-card shadow-sm overflow-hidden">
