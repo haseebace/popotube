@@ -2,6 +2,15 @@
 const nextConfig = {
   output: 'standalone' as const,
   typescript: { ignoreBuildErrors: true },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https' as const,
+        hostname: 'image.tmdb.org',
+        pathname: '/t/p/**',
+      },
+    ],
+  },
   async rewrites() {
     return [
       {
