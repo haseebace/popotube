@@ -1,5 +1,8 @@
-import React from 'react';
-import Link from 'next/link';
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
 
 interface MovieCardProps {
   id: number;
@@ -9,37 +12,54 @@ interface MovieCardProps {
   voteAverage?: number;
 }
 
-export default function MovieCard({ id, title, posterPath, releaseDate, voteAverage }: MovieCardProps) {
+export default function MovieCard({
+  id,
+  title,
+  posterPath,
+  releaseDate,
+  voteAverage,
+}: MovieCardProps) {
   const imageUrl = posterPath
     ? `https://image.tmdb.org/t/p/w500${posterPath}`
-    : '/placeholder-poster.png'; // Make sure you have a placeholder or it will be broken image
+    : "/placeholder-poster.png"; // Make sure you have a placeholder or it will be broken image
 
   return (
-    <div className="w-full flex justify-center p-2 group">
-      <Link href={`/watch/${id}`} className="w-full block transition-transform duration-200 hover:scale-105">
-        <div className="relative w-full aspect-[2/3] bg-muted rounded-xl md:rounded-2xl overflow-hidden shadow-md">
+    <motion.div
+      className="w-full h-full p-2"
+      whileHover={{ scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 400, damping: 5 }}
+    >
+      <Link href={`/watch/${id}`} className="w-full block h-full group">
+        <div className="relative w-full aspect-[2/3] bg-muted rounded-xl md:rounded-2xl overflow-hidden shadow-lg border border-white/5">
           {/* The image now perfectly fills the container and respects the border radius */}
-          <img 
-            src={imageUrl} 
-            alt={`${title} poster`} 
-            className="w-full h-full object-cover object-center" 
-            loading="lazy" 
+          <img
+            src={imageUrl}
+            alt={`${title} poster`}
+            className="w-full h-full object-cover object-center"
+            loading="lazy"
           />
-          
+
           {/* Hover Overlay */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4 text-white">
-            <h3 className="font-semibold text-sm line-clamp-2">{title}</h3>
-            {releaseDate && (
-              <p className="text-xs text-gray-300 mt-1">{new Date(releaseDate).getFullYear()}</p>
-            )}
-            {voteAverage !== undefined && voteAverage > 0 && (
-              <div className="mt-2 flex items-center text-xs font-medium">
-                <span className="text-yellow-400 mr-1">★</span> {voteAverage.toFixed(1)}
-              </div>
-            )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4 text-white">
+            <h3 className="font-bold text-sm md:text-base line-clamp-2 leading-tight drop-shadow-lg">
+              {title}
+            </h3>
+            <div className="flex items-center gap-3 mt-1 text-white/80 font-medium">
+              {releaseDate && (
+                <span className="text-xs">
+                  {new Date(releaseDate).getFullYear()}
+                </span>
+              )}
+              {voteAverage !== undefined && voteAverage > 0 && (
+                <div className="flex items-center text-xs">
+                  <span className="text-yellow-400 mr-1">★</span>{" "}
+                  {voteAverage.toFixed(1)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </Link>
-    </div>
+    </motion.div>
   );
 }

@@ -49,3 +49,4 @@ backend/.env
 media/
 docker/qbittorrent/config/
 docker/jackett/config/
+.cursor/

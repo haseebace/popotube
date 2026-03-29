@@ -5,14 +5,24 @@ import MovieCard from './MovieCard';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+type CategoryMovie = {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path?: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average?: number;
+};
+
 interface MovieCategoryRowProps {
-  title: string;
+  title: string | React.ReactNode;
   endpoint: string;
   badge?: { label: string; color: string }; // Optional platform badge
 }
 
 export default function MovieCategoryRow({ title, endpoint, badge }: MovieCategoryRowProps) {
-  const [movies, setMovies] = useState<any[]>([]);
+  const [movies, setMovies] = useState<CategoryMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -49,15 +59,17 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
   if (loading || movies.length === 0) {
     return (
       <div className="w-full py-8 space-y-4">
-        <div className="flex items-center gap-3 px-6 md:px-12 mb-4">
-          <h2 className="text-2xl font-bold">{title}</h2>
-          {badge && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: badge.color, color: '#fff' }}>
-              {badge.label}
-            </span>
-          )}
+        <div className="container mx-auto px-6 mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold">{title}</h2>
+            {badge && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: badge.color, color: '#fff' }}>
+                {badge.label}
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex px-6 md:px-12 space-x-4 overflow-hidden">
+        <div className="container mx-auto px-6 flex space-x-4 overflow-hidden">
           {Array(5).fill(0).map((_, i) => (
             <div key={i} className="w-[120px] md:w-48 h-[180px] md:h-[288px] bg-muted animate-pulse rounded-xl flex-shrink-0" />
           ))}
@@ -67,9 +79,9 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
   }
 
   return (
-    <div className="w-full py-8 group/row relative flex flex-col items-center">
-      <div className="container max-w-full px-6 md:px-12">
-        <div className="flex items-center gap-3 mb-4">
+    <div className="w-full py-4 group/row relative">
+      <div className="container mx-auto px-6 mb-2">
+        <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold">{title}</h2>
           {badge && (
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: badge.color, color: '#fff' }}>
@@ -91,7 +103,7 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
         </Button>
 
         <div 
-          className="flex overflow-x-auto gap-4 px-6 md:px-12 pb-4 snap-x snap-mandatory hide-scrollbar style-scrollbar"
+          className="container mx-auto px-6 flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar style-scrollbar"
           ref={scrollContainerRef}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
