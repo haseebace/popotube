@@ -1,7 +1,11 @@
 import React from "react";
-import WatchClient from "@/components/public/WatchClient";
-import { Badge } from "@/components/ui/badge";
-import { Star, Clock, CalendarDays } from "lucide-react";
+import Link from "next/link";
+import WatchMovieExperience from "@/components/public/watch/WatchMovieExperience";
+import type { WatchMoviePayload } from "@/components/public/watch/types";
+import {
+  rankSimilarMovies,
+  type TMDBListMovie,
+} from "@/lib/watch-similar-movies";
 
 type TMDBGenre = {
   id: number;
@@ -12,6 +16,17 @@ type TMDBCrewMember = {
   id: number;
   name: string;
   job?: string;
+};
+
+type TMDBCastMember = {
+  id: number;
+  name: string;
+  character?: string;
+};
+
+type TMDBReleaseDatesResult = {
+  iso_3166_1: string;
+  release_dates: Array<{ certification: string }>;
 };
 
 type TMDBMovieDetails = {
@@ -27,8 +42,24 @@ type TMDBMovieDetails = {
   genres?: TMDBGenre[];
   credits?: {
     crew?: TMDBCrewMember[];
+    cast?: TMDBCastMember[];
+  };
+  release_dates?: {
+    results?: TMDBReleaseDatesResult[];
+  };
+  similar?: {
+    results?: TMDBListMovie[];
+  };
+  recommendations?: {
+    results?: TMDBListMovie[];
   };
 };
+
+function usCertification(movie: TMDBMovieDetails): string | null {
+  const us = movie.release_dates?.results?.find((r) => r.iso_3166_1 === "US");
+  const withCert = us?.release_dates?.find((d) => d.certification?.trim());
+  return withCert?.certification?.trim() || null;
+}
 
 async function getMovieDetails(id: string) {
   const TMDB_API_KEY = process.env.TMDB_API_KEY;
@@ -37,7 +68,7 @@ async function getMovieDetails(id: string) {
   if (!TMDB_API_KEY) return null;
   try {
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/${id}?append_to_response=credits,videos&language=en-US&api_key=${TMDB_API_KEY}`,
+      `${TMDB_BASE_URL}/movie/${id}?append_to_response=credits,videos,release_dates,similar,recommendations&language=en-US&api_key=${TMDB_API_KEY}`,
       { next: { revalidate: 3600 } },
     );
     if (!response.ok) return null;
@@ -47,10 +78,38 @@ async function getMovieDetails(id: string) {
   }
 }
 
-function formatRuntime(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+function heroTeaser(movie: TMDBMovieDetails): string {
+  if (movie.tagline?.trim()) return movie.tagline.trim();
+  if (movie.overview?.trim()) {
+    const t = movie.overview.trim();
+    return t.length > 220 ? `${t.slice(0, 217)}…` : t;
+  }
+  return "";
+}
+
+function toPayload(movie: TMDBMovieDetails): WatchMoviePayload {
+  const similar = rankSimilarMovies(
+    movie.id,
+    movie.release_date,
+    movie.genres,
+    movie.similar?.results,
+    movie.recommendations?.results,
+    8,
+  );
+  return {
+    id: movie.id,
+    title: movie.title,
+    tagline: movie.tagline,
+    overview: movie.overview,
+    backdrop_path: movie.backdrop_path,
+    poster_path: movie.poster_path,
+    runtime: movie.runtime,
+    release_date: movie.release_date,
+    genres: movie.genres,
+    credits: movie.credits,
+    release_dates: movie.release_dates,
+    similar,
+  };
 }
 
 export default async function WatchPage({
@@ -63,126 +122,35 @@ export default async function WatchPage({
 
   if (!movie) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-12">
-        <h1 className="text-2xl font-bold">Movie not found</h1>
+      <div className="-mt-14 flex min-h-screen flex-col items-center justify-center gap-4 bg-surface px-6 font-body text-on-surface">
+        <p className="label-md uppercase text-on-surface-variant">Catalogue</p>
+        <h1 className="type-headline-lg font-bold uppercase tracking-tighter text-noir-primary">
+          Title not found
+        </h1>
+        <Link
+          href="/"
+          className="label-md mt-2 uppercase text-noir-secondary underline-offset-4 transition-colors hover:text-noir-primary hover:underline"
+        >
+          Back to browse
+        </Link>
       </div>
     );
   }
 
-  const backdropUrl = movie.backdrop_path
-    ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}`
-    : "";
-  const posterUrl = movie.poster_path
-    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-    : "";
+  const director = movie.credits?.crew?.find((c) => c.job === "Director");
 
   return (
-    <div className="w-full flex flex-col relative min-h-screen">
-      {/* ── Cinematic backdrop ── */}
-      <div className="absolute top-0 left-0 w-full h-[55vh] -z-10 bg-muted">
-        {backdropUrl && (
-          <>
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url(${backdropUrl})` }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
-          </>
-        )}
-      </div>
-
-      <div className="container mx-auto px-4 pt-12 md:pt-24 pb-24 space-y-12 flex-1 flex flex-col">
-        {/* ── Player ── */}
-        <div className="w-full max-w-5xl mx-auto z-10">
-          <WatchClient tmdbId={tmdb_id} movieDetails={movie} />
-        </div>
-
-        {/* ── Movie Info ── */}
-        <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row gap-8">
-          {/* Poster */}
-          {posterUrl && (
-            <div className="w-44 flex-shrink-0 hidden md:block rounded-xl overflow-hidden shadow-xl aspect-[2/3] bg-muted">
-              <img
-                src={posterUrl}
-                alt={movie.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-
-          {/* Metadata */}
-          <div className="space-y-5 flex-1 min-w-0">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight">
-                {movie.title}
-              </h1>
-              {movie.tagline && (
-                <p className="text-muted-foreground mt-1 italic text-lg">
-                  {movie.tagline}
-                </p>
-              )}
-            </div>
-
-            {/* Stats row */}
-            <div className="flex flex-wrap items-center gap-3">
-              {movie.vote_average != null && movie.vote_average > 0 && (
-                <div className="flex items-center gap-1 text-sm font-semibold text-yellow-500">
-                  <Star className="w-4 h-4 fill-yellow-500" />
-                  {movie.vote_average.toFixed(1)}
-                  <span className="text-muted-foreground font-normal text-xs">
-                    / 10
-                  </span>
-                </div>
-              )}
-              {movie.runtime != null && movie.runtime > 0 && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  {formatRuntime(movie.runtime)}
-                </div>
-              )}
-              {movie.release_date && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <CalendarDays className="w-4 h-4" />
-                  {new Date(movie.release_date).getFullYear()}
-                </div>
-              )}
-            </div>
-
-            {/* Genre badges */}
-            {movie.genres && movie.genres.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {movie.genres.map((g) => (
-                  <Badge key={g.id} variant="secondary">
-                    {g.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {/* Overview */}
-            {movie.overview && (
-              <p className="text-base leading-relaxed text-muted-foreground max-w-2xl">
-                {movie.overview}
-              </p>
-            )}
-
-            {/* Director */}
-            {(() => {
-              const director = movie.credits?.crew?.find(
-                (c) => c.job === "Director",
-              );
-              return director ? (
-                <p className="text-sm text-muted-foreground">
-                  <span className="text-foreground font-medium">
-                    Director:{" "}
-                  </span>
-                  {director.name}
-                </p>
-              ) : null;
-            })()}
-          </div>
-        </div>
-      </div>
-    </div>
+    <WatchMovieExperience
+      payload={toPayload(movie)}
+      teaser={heroTeaser(movie)}
+      certification={usCertification(movie)}
+      year={
+        movie.release_date
+          ? new Date(movie.release_date).getFullYear()
+          : null
+      }
+      genreLine={movie.genres?.map((g) => g.name).join(" / ") || "—"}
+      directorName={director?.name ?? null}
+    />
   );
 }
