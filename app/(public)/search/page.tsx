@@ -30,6 +30,12 @@ export default function SearchPage() {
   const debouncedQuery = useDebounce(query, 500);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q0 = params.get('q');
+    if (q0) setQuery(q0);
+  }, []);
+
+  useEffect(() => {
     async function performSearch() {
       if (!debouncedQuery.trim()) {
         setResults([]);
