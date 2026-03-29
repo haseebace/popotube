@@ -3,19 +3,19 @@
 This document outlines the URL structure for PoPoTube, clearly separating the **Public Showcase** (what visitors see) from the **Admin Dashboard** (the ingestion engine for managing content).
 
 ## 1. Public Showcase (Unauthenticated)
-These routes are publicly accessible. They serve the end-user experience, allowing anyone to browse, search, and watch fully processed videos from Bunny Stream.
+These routes are publicly accessible. They serve the end-user experience, allowing anyone to browse, search, and watch fully processed videos from the current playback pipeline.
 
 | Route | Purpose | Description |
 | :--- | :--- | :--- |
 | `/` | Landing / Home | The main Netflix-style homepage. Features trending or recently added movies from the Supabase `videos` table. |
-| `/watch/[id]` | Video Player | The dedicated movie page. This loads the `stream_url` from Bunny CDN and provides the viewing experience. |
+| `/watch/[id]` | Video Player | The dedicated movie page. This loads the current `stream_url` / `playback_source` and provides the viewing experience. |
 | `/search` | Public Search | A search page that **only queries our Supabase database**. It does NOT scrape torrents. |
 | `/categories/[genre]` | Genre Filtering | (Optional Future Feature) Browse movies by genre. |
 
 ---
 
 ## 2. Admin Dashboard (Authenticated)
-These routes are strictly protected. They power the ingestion engine (Jackett -> Real-Debrid -> BunnyCDN) and must be locked behind authentication (e.g., Supabase Auth or Basic Auth). 
+These routes are strictly protected. They power the ingestion engine (Jackett -> Real-Debrid) and must be locked behind authentication (e.g., Supabase Auth or Basic Auth). 
 
 Everything here exists under the `/admin` prefix.
 
@@ -23,8 +23,8 @@ Everything here exists under the `/admin` prefix.
 | :--- | :--- | :--- |
 | `/admin/login` | Authentication | The secure gateway. Redirects unauthorized users here. |
 | `/admin` | Dashboard Overview | High-level stats: active active downloads, total movies, available disk space, etc. |
-| `/admin/search` | Torrent Scraper | (Formerly `/Home`). Queries Jackett, displays magnets, and triggers the `bunny-download` queue. |
-| `/admin/downloads` | Ingestion Tracker | (Formerly `/downloads`). Monitors Real-Debrid and Bunny Stream progress in real-time. |
+| `/admin/search` | Torrent Scraper | Queries Jackett, displays magnets, and triggers the ingestion queue. |
+| `/admin/downloads` | Ingestion Tracker | Monitors Real-Debrid progress in real-time. |
 | `/admin/library` | Content Manager | (Formerly `/library`). View, edit metadata, or delete fully completed videos from the database. |
 | `/admin/settings` | Configuration | Manage API keys, indexers, or application preferences. |
 
@@ -38,7 +38,7 @@ Our backend Next.js and Fastify API routes should follow a similar logical separ
 - `GET /api/public/videos/[id]` - Fetch details and streaming link for a specific video.
 
 ### Admin APIs (Secured)
-- `POST /api/bunny-download` - Trigger torrent ingestion.
+- `POST /api/ingest` - Trigger torrent ingestion.
 - `POST /api/cancel-job` - Cancel an active download/ingestion job.
 - `DELETE /api/videos/[id]` - Remove a video from the library.
 

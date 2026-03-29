@@ -2,6 +2,8 @@
 
 This document breaks down the migration from local qBittorrent/Nginx to the Real-Debrid API, based on the v2 architecture PRD.
 
+> Historical migration notes. Any Bunny handoff references below are legacy planning artifacts, not current runtime behavior.
+
 ---
 
 ## Phase 1: Authentication & Preparation

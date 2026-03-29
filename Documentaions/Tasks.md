@@ -2,6 +2,8 @@
 
 This document breaks down the Torrent → Bunny Stream Ingestion Platform into manageable, sequential development tasks based on the PRD.
 
+> Legacy document. Bunny-specific tasks below are historical and do not describe the current runtime.
+
 ---
 
 ## Phase 1: Foundation & Database Setup

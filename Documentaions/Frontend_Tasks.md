@@ -81,11 +81,11 @@ Based on the `Frontend_PRD.md`, here is a detailed, step-by-step breakdown of th
     - Setup a polling mechanism (e.g., every 5-10 seconds) on the frontend repeating the `GET /api/public/movie-status` check.
 
 16. **Playback UI (Completed state)**
-    - Once the polling returns `status === 'completed'` and provides a Bunny `stream_url`, transition the UI.
+    - Once the polling returns `status === 'completed'` and provides a usable `stream_url` or `playback_source`, transition the UI.
     - Hide the loading `<div>` and reveal the video player `<div>`.
-    - Instantiate the Bunny Stream player.
+    - Instantiate the direct/HLS player.
 
 ## Phase 6: Backend Queue & Database Finalization
 17. **Connecting the Pipeline**
-    - Ensure the backend BullMQ worker processing `bunny-download` actions correctly logs the `tmdb_id` to Supabase alongside the final video URL.
+    - Ensure the backend BullMQ worker processing ingestion actions correctly logs the `tmdb_id` to Supabase alongside the final video URL.
     - Make sure the movie record updates its state (e.g., `pending` -> `downloading` -> `completed`) accurately so the frontend polling accurately reflects real-time status.

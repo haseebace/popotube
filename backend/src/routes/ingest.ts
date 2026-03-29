@@ -183,13 +183,4 @@ export default async function (fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
-
-  // Fallback deprecated route
-  fastify.post('/api/bunny-download', async (request: FastifyRequest<{ Body: IngestBody }>, reply: FastifyReply) => {
-    fastify.log.warn('Client is using deprecated /api/bunny-download route. Serving via /api/ingest alias handler.');
-    // In Fastify we can't easily 308 post bodies cleanly on all tools, so we just pass the request to our handler logic above or rewrite it:
-    await fastify.inject({ method: 'POST', url: '/api/ingest', payload: request.body as any, headers: request.headers })
-      .then(res => reply.status(res.statusCode).headers(res.headers).send(res.payload))
-      .catch(() => reply.redirect('/api/ingest'));
-  });
 }

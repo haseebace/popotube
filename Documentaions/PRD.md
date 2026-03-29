@@ -1,5 +1,7 @@
 # Product Requirements Document (PRD)
 
+> Legacy document. This file describes the deprecated Bunny-era architecture and is preserved for historical reference only. The live application now uses a Real-Debrid-first playback flow.
+
 ## Product Name
 Torrent → Bunny Stream Ingestion Platform
 

@@ -5,13 +5,27 @@ import { ingestionQueue } from '../queue/ingestion';
 import { parseTorrentMetadata } from '../lib/torrent-parser';
 import { findBestVideoForTmdb, isReusableVideoStatus } from '../lib/video-reuse';
 
-const JACKETT_URL = process.env.JACKETT_URL || 'http://jackett:9117';
-const JACKETT_API_KEY = process.env.JACKETT_API_KEY;
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_BASE_URL = process.env.TMDB_BASE_URL || 'https://api.themoviedb.org/3';
+const TORRENTIO_BASE_URL = 'https://torrentio.strem.fun';
 
 interface TriggerIngestionBody {
   tmdb_id: number;
   title: string;
   year?: string;
+}
+
+interface TorrentioCandidate {
+  title: string;
+  sizeBytes: number;
+  seeders: number;
+  magnetUri: string | null;
+  infoHash: string | null;
+  source: string;
+  quality: string;
+  codec: string;
+  releaseSource: string;
+  details: string;
 }
 
 function normalizeTitle(value: string): string {
@@ -23,16 +37,20 @@ function normalizeTitle(value: string): string {
 }
 
 function scoreTorrentResult(
-  result: any,
+  result: TorrentioCandidate,
   requestedTitle: string,
   requestedYear?: string
 ): { score: number; reasons: string[] } {
   const reasons: string[] = [];
   const normalizedRequestedTitle = normalizeTitle(requestedTitle);
-  const normalizedResultTitle = normalizeTitle(result.Title || '');
-  const seeders = Number(result.Seeders || 0);
-  const sizeGB = Number(result.Size || 0) / (1024 * 1024 * 1024);
-  const metadata = parseTorrentMetadata(result.Title || '');
+  const normalizedResultTitle = normalizeTitle(result.title || '');
+  const seeders = Number(result.seeders || 0);
+  const sizeGB = Number(result.sizeBytes || 0) / (1024 * 1024 * 1024);
+  const metadata = {
+    quality: result.quality,
+    codec: result.codec,
+    source: result.releaseSource,
+  };
   let score = seeders / Math.max(sizeGB, 0.25);
 
   if (normalizedResultTitle.includes(normalizedRequestedTitle)) {
@@ -45,7 +63,7 @@ function scoreTorrentResult(
 
   if (requestedYear) {
     const yearRegex = new RegExp(`\\b${requestedYear}\\b`);
-    if (yearRegex.test(result.Title || '')) {
+    if (yearRegex.test(result.title || '')) {
       score += 40;
       reasons.push('year_match');
     } else {
@@ -60,9 +78,9 @@ function scoreTorrentResult(
   } else if (metadata.quality === '1080p' || metadata.quality === '1080i') {
     score += 60;
     reasons.push('prefer_1080p');
-  } else if (metadata.quality === '720p') {
-    score += 20;
-    reasons.push('accept_720p');
+  } else {
+    score -= 500;
+    reasons.push('below_1080p');
   }
 
   if (metadata.source === 'Remux') {
@@ -83,12 +101,12 @@ function scoreTorrentResult(
     reasons.push('efficient_codec');
   }
 
-  if (metadata.source === 'CAM' || metadata.source === 'TS' || /\b(hdcam|hd-ts|telecine)\b/i.test(result.Title || '')) {
+  if (metadata.source === 'CAM' || metadata.source === 'TS' || /\b(hdcam|hd-ts|telecine)\b/i.test(result.title || '')) {
     score -= 400;
     reasons.push('reject_cam_quality');
   }
 
-  if (/sample/i.test(result.Title || '')) {
+  if (/sample/i.test(result.title || '')) {
     score -= 300;
     reasons.push('sample_penalty');
   }
@@ -115,6 +133,69 @@ function scoreTorrentResult(
   };
 }
 
+function parseSizeToBytes(sizeStr: string): number {
+  const match = sizeStr.match(/([0-9.]+)\s*(GB|MB|KB|B)/i);
+  if (!match) return 0;
+
+  const val = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+
+  switch (unit) {
+    case 'GB':
+      return Math.floor(val * 1024 * 1024 * 1024);
+    case 'MB':
+      return Math.floor(val * 1024 * 1024);
+    case 'KB':
+      return Math.floor(val * 1024);
+    default:
+      return Math.floor(val);
+  }
+}
+
+async function resolveImdbIdFromTmdb(tmdbId: number): Promise<string | null> {
+  if (!TMDB_API_KEY) {
+    throw new Error('TMDB_API_KEY is not configured on the backend.');
+  }
+
+  const response = await axios.get(`${TMDB_BASE_URL}/movie/${tmdbId}/external_ids`, {
+    params: {
+      api_key: TMDB_API_KEY,
+    },
+    timeout: 10000,
+  });
+
+  return response.data?.imdb_id || null;
+}
+
+async function fetchTorrentioCandidates(imdbId: string): Promise<TorrentioCandidate[]> {
+  const torrentioUrl = `${TORRENTIO_BASE_URL}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/movie/${imdbId}.json`;
+  const response = await axios.get(torrentioUrl, { timeout: 15000 });
+  const streams = response.data?.streams || [];
+
+  return streams.map((stream: any) => {
+    const parts = String(stream.title || '').split('\n');
+    const candidateTitle = parts[0] || stream.name || '';
+    const infoLine = parts[1] || '';
+    const sizeMatch = infoLine.match(/(?:💾|size:)?\s*([0-9.]+\s*(GB|MB|KB|B))/i);
+    const seederMatch = infoLine.match(/(?:👤|S:)\s*([0-9]+)/i);
+    const sizeStr = sizeMatch ? sizeMatch[1].trim() : '0 B';
+    const metadata = parseTorrentMetadata(candidateTitle);
+
+    return {
+      title: candidateTitle,
+      sizeBytes: parseSizeToBytes(sizeStr),
+      seeders: seederMatch ? parseInt(seederMatch[1], 10) : 0,
+      magnetUri: stream.infoHash ? `magnet:?xt=urn:btih:${stream.infoHash}` : null,
+      infoHash: stream.infoHash || null,
+      source: stream.name || 'torrentio',
+      quality: metadata.quality,
+      codec: metadata.codec,
+      releaseSource: metadata.source,
+      details: infoLine,
+    };
+  });
+}
+
 export default async function (fastify: FastifyInstance) {
   fastify.post('/api/trigger-ingestion', async (request: FastifyRequest<{ Body: TriggerIngestionBody }>, reply: FastifyReply) => {
     const startedAt = Date.now();
@@ -131,7 +212,7 @@ export default async function (fastify: FastifyInstance) {
           tmdb_id,
           existing_video_id: existingVideo.id,
           existing_status: existingVideo.status,
-        }, 'Reusing existing TMDB video before Jackett search');
+        }, 'Reusing existing TMDB video before Torrentio search');
 
         return reply.send({
           message: existingVideo.status === 'completed' ? 'Video already available' : 'Video already in progress',
@@ -144,51 +225,63 @@ export default async function (fastify: FastifyInstance) {
         });
       }
 
-      if (!JACKETT_API_KEY || JACKETT_API_KEY === 'your_api_key_here') {
-        return reply.status(500).send({ error: 'Jackett API key not configured.' });
+      if (!TMDB_API_KEY) {
+        return reply.status(500).send({ error: 'TMDB API key not configured.' });
       }
 
-      fastify.log.info({ tmdb_id, title }, 'Starting Jackett search for ingestion');
+      fastify.log.info({ tmdb_id, title }, 'Starting Torrentio search for ingestion');
 
-      // 1. Search Jackett for the movie
-      const query = `${title} ${year || ''}`.trim();
-      const jackettEndpoint = `${JACKETT_URL}/api/v2.0/indexers/all/results?apikey=${JACKETT_API_KEY}&Query=${encodeURIComponent(query)}&_=${Date.now()}`;
-      
-      const jackettStartedAt = Date.now();
-      const searchRes = await axios.get(jackettEndpoint, { timeout: 15000 });
+      const imdbLookupStartedAt = Date.now();
+      const imdbId = await resolveImdbIdFromTmdb(tmdb_id);
       fastify.log.info({
         tmdb_id,
         title,
-        query,
-        duration_ms: Date.now() - jackettStartedAt,
-      }, 'Jackett search completed');
-      const results = searchRes.data.Results || [];
+        duration_ms: Date.now() - imdbLookupStartedAt,
+        imdb_id: imdbId,
+      }, 'TMDB external ID lookup completed');
 
-      // Filter results to those that have a magnetUri
-      const validResults = results.filter((r: any) => r.MagnetUri);
+      if (!imdbId) {
+        return reply.status(404).send({ error: 'Unable to resolve IMDB ID for this movie.' });
+      }
+
+      const torrentioStartedAt = Date.now();
+      const candidates = await fetchTorrentioCandidates(imdbId);
+      fastify.log.info({
+        tmdb_id,
+        imdb_id: imdbId,
+        duration_ms: Date.now() - torrentioStartedAt,
+        result_count: candidates.length,
+      }, 'Torrentio search completed');
+
+      const validResults = candidates.filter((candidate) =>
+        candidate.magnetUri &&
+        candidate.infoHash &&
+        (candidate.quality === '1080p' || candidate.quality === '1080i' || candidate.quality === '2160p')
+      );
 
       if (validResults.length === 0) {
-        return reply.status(404).send({ error: 'No magnet links found for this movie' });
+        return reply.status(404).send({ error: 'No 1080p-or-higher Torrentio streams were found for this movie' });
       }
 
       // 2. Rank torrents with title, year, quality, source, codec, size, and seeder signals.
-      const scoredResults = validResults.map((r: any) => {
-        const { score, reasons } = scoreTorrentResult(r, title, year);
+      const scoredResults = validResults.map((candidate) => {
+        const { score, reasons } = scoreTorrentResult(candidate, title, year);
+        const r = candidate;
         return { ...r, score, scoreReasons: reasons };
       });
 
       const bestResult = scoredResults.sort((a: any, b: any) => b.score - a.score)[0];
-      const metadata = parseTorrentMetadata(bestResult.Title);
+      const metadata = parseTorrentMetadata(bestResult.title);
 
-      const magnet = bestResult.MagnetUri;
-      const size = bestResult.Size;
+      const magnet = bestResult.magnetUri;
+      const size = bestResult.sizeBytes;
       
       // Extract info_hash
-      const match = magnet.match(/urn:btih:([a-zA-Z0-9]+)/i);
+      const match = magnet?.match(/urn:btih:([a-zA-Z0-9]+)/i);
       const info_hash = match ? match[1].toLowerCase() : null;
 
       if (!info_hash) {
-        return reply.status(400).send({ error: 'Invalid magnet link extracted from Jackett' });
+        return reply.status(400).send({ error: 'Invalid magnet link extracted from Torrentio' });
       }
 
       const existingVideoAfterSearch = await findBestVideoForTmdb(tmdb_id);
@@ -197,7 +290,7 @@ export default async function (fastify: FastifyInstance) {
           tmdb_id,
           existing_video_id: existingVideoAfterSearch.id,
           existing_status: existingVideoAfterSearch.status,
-        }, 'Reusing existing TMDB video after Jackett search');
+        }, 'Reusing existing TMDB video after Torrentio search');
 
         return reply.send({
           message: existingVideoAfterSearch.status === 'completed' ? 'Video already available' : 'Video already in progress',
@@ -213,22 +306,25 @@ export default async function (fastify: FastifyInstance) {
       fastify.log.info({
         info_hash,
         title,
-        selected_title: bestResult.Title,
-        selected_seeders: bestResult.Seeders,
-        selected_size: bestResult.Size,
+        selected_title: bestResult.title,
+        selected_seeders: bestResult.seeders,
+        selected_size: bestResult.sizeBytes,
+        selected_quality: bestResult.quality,
+        selected_source: bestResult.source,
         selected_score: bestResult.score,
         selected_score_reasons: bestResult.scoreReasons,
         top_candidates: scoredResults
           .sort((a: any, b: any) => b.score - a.score)
           .slice(0, 5)
           .map((result: any) => ({
-            title: result.Title,
-            seeders: result.Seeders,
-            size: result.Size,
+            title: result.title,
+            seeders: result.seeders,
+            size: result.sizeBytes,
+            quality: result.quality,
             score: result.score,
             reasons: result.scoreReasons,
           })),
-      }, 'Found best torrent, inserting to database');
+      }, 'Found best Torrentio candidate, inserting to database');
 
       // 3. Insert or update DB
       let videoRecord;
@@ -356,8 +452,8 @@ export default async function (fastify: FastifyInstance) {
 
     } catch (err: any) {
       if (err.code === 'ECONNABORTED' || err.name === 'TimeoutError') {
-        fastify.log.error('Jackett request timed out');
-        return reply.status(504).send({ error: 'Jackett request timed out' });
+        fastify.log.error('Torrentio/TMDB request timed out');
+        return reply.status(504).send({ error: 'Torrentio/TMDB request timed out' });
       }
       fastify.log.error({ err }, 'Exception in trigger-ingestion route');
       return reply.status(500).send({ error: 'Internal server error' });

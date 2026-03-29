@@ -2,7 +2,6 @@ import { Queue, Worker, UnrecoverableError } from 'bullmq';
 import { connection } from '../lib/redis';
 import { rdClient } from '../lib/real-debrid';
 import { supabase } from '../lib/supabase';
-import { cdnStreamClient } from '../lib/cdn';
 import { logger } from '../lib/logger';
 
 export const INGESTION_QUEUE_NAME = 'ingestionQueue';
@@ -219,87 +218,6 @@ export const ingestionWorker = new Worker(
       }).eq('id', videoId);
 
       logger.info(`✅ [Job ${job.id}] Video is ready for playback via Real-Debrid!`);
-
-      let cdnVideoId: string | undefined;
-
-      // Phase 3.3 (Optional): CDN Fallback
-      if (process.env.ENABLE_CDN_FALLBACK === 'true') {
-          logger.info(`🐇 [Job ${job.id}] CDN fallback enabled. Mirroring to CDN...`);
-          await supabase.from('videos').update({ status: 'cdn_fetching', progress: 55 }).eq('id', videoId);
-
-          const cdnRes = await cdnStreamClient.fetchVideo(fullDownloadUrl, videoRecord.title);
-          cdnVideoId = cdnRes.id || cdnRes.videoGuid || cdnRes.guid;
-
-          if (!cdnVideoId) {
-            throw new Error(`CDN failed to return a valid video ID. Raw response: ${JSON.stringify(cdnRes)}`);
-          }
-          
-          await supabase.from('videos').update({ cdn_video_id: cdnVideoId }).eq('id', videoId);
-          
-          await supabase.from('videos').update({ status: 'encoding' }).eq('id', videoId);
-          
-          let isCdnDone = false;
-          let lastEncodeProgress = 0;
-          let stalledCount = 0;
-
-          while (!isCdnDone) {
-            await new Promise((resolve) => setTimeout(resolve, 10000));
-            const details = await cdnStreamClient.getVideoDetails(cdnVideoId!);
-            
-            const encodeProgress = details.encodeProgress || 0;
-            const globalProgress = parseFloat((55 + (encodeProgress * 0.44)).toFixed(2));
-            
-            if (globalProgress < 100) {
-                await supabase.from('videos').update({ progress: globalProgress }).eq('id', videoId);
-            }
-            
-            if (details.status === 3 || details.status === 4 || details.status === 6) {
-               isCdnDone = true;
-            } else if (details.status === 5) {
-               throw new Error('CDN Stream failed to process the video.');
-            } else {
-               if (encodeProgress === lastEncodeProgress) {
-                 stalledCount++;
-                 if (stalledCount > 60) {
-                    throw new Error('CDN Stream encoding seems stalled.');
-                 }
-               } else {
-                 stalledCount = 0;
-                 lastEncodeProgress = encodeProgress;
-               }
-            }
-          }
-
-          logger.info(`🎉 [Job ${job.id}] CDN processing complete.`);
-          const CDN_LIBRARY_ID = process.env.BUNNY_LIBRARY_ID || '';
-          const stream_url = `https://iframe.mediadelivery.net/embed/${CDN_LIBRARY_ID}/${cdnVideoId}`;
-
-          const cdnPlaybackSource = {
-             type: 'cdn',
-             url: stream_url,
-             codec: 'H.264',
-             container: 'hls',
-             mime_type: 'application/x-mpegURL',
-             is_streamable: true,
-             source_type: 'cdn'
-          };
-
-          await supabase.from('videos').update({ 
-            status: 'completed',
-            stream_url: stream_url,
-            progress: 100,
-            playback_source: cdnPlaybackSource
-          }).eq('id', videoId);
-
-          timing.total({
-            rd_torrent_id: rdTorrentId,
-            cdn_video_id: cdnVideoId,
-            playback_source_type: cdnPlaybackSource.type,
-            source_type: cdnPlaybackSource.source_type,
-          });
-
-          return { status: 'success', videoId, cdnVideoId, stream_url, playback_source: cdnPlaybackSource };
-      }
 
       timing.total({
         rd_torrent_id: rdTorrentId,

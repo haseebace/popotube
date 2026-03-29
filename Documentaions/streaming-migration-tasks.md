@@ -1,6 +1,6 @@
 # Streaming Migration Tasks
 
-This file tracks the migration from the current Bunny-based ingestion/playback pipeline to a Real-Debrid-first streaming architecture.
+This file tracks the migration from the former Bunny-based ingestion/playback pipeline to a Real-Debrid-first streaming architecture.
 
 ---
 

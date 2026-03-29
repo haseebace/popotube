@@ -2,8 +2,6 @@ import { supabase } from './supabase';
 
 const STATUS_PRIORITY: Record<string, number> = {
   completed: 1000,
-  encoding: 800,
-  cdn_fetching: 760,
   exposing_http: 740,
   downloading_torrent: 720,
   pending: 700,
@@ -32,7 +30,7 @@ function sortVideosByReusePriority(videos: Record<string, any>[]): Record<string
 }
 
 export function isReusableVideoStatus(status?: string): boolean {
-  return Boolean(status && ['completed', 'encoding', 'cdn_fetching', 'exposing_http', 'downloading_torrent', 'pending', 'submitted', 'retrying'].includes(status));
+  return Boolean(status && ['completed', 'exposing_http', 'downloading_torrent', 'pending', 'submitted', 'retrying'].includes(status));
 }
 
 export async function findBestVideoForTmdb(

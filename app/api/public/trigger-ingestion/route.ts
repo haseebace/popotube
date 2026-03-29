@@ -10,7 +10,7 @@ export async function POST(request: Request) {
        return NextResponse.json({ error: 'tmdb_id and title are required' }, { status: 400 });
     }
 
-    // Proxy the entire ingestion job (Jackett scrape + scoring + BullMQ queueing) to Fastify
+    // Proxy the public ingestion job (Torrentio lookup + scoring + BullMQ queueing) to Fastify
     const backendRes = await fetch(`${BACKEND_URL}/api/trigger-ingestion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
