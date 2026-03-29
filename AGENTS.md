@@ -32,10 +32,11 @@ Both packages use **npm** with lockfiles. Run `npm install` separately in each d
 - **`.env` file placement**: Both services read from the root `.env` file, but the backend's `redis.ts` and `supabase.ts` resolve dotenv relative to their own source paths. A symlink at `backend/.env -> ../.env` ensures all imports find the env vars correctly.
 - **Supabase is soft-required**: The backend warns but starts without valid Supabase credentials. However, any route that touches the DB will fail.
 - **External services**: Full end-to-end flows require Real-Debrid, Jackett, and TMDB API keys. BunnyCDN has been removed from the architecture. The app runs structurally without external keys but API routes return errors.
+- **Public playback flow**: Poster-click playback is metadata-driven. The backend resolves TMDb -> IMDb, queries Torrentio, filters to `1080p+`, checks Real-Debrid instant availability by torrent hash, prefers cached candidates, then queues the existing ingestion worker.
 - **Frontend rewrites**: The Next.js config proxies `/api/proxy/*` to `BACKEND_URL` (defaults to `http://127.0.0.1:3001`). No separate CORS config needed for local dev.
 - **Frontend API proxy**: The frontend also proxies `/api/backend/*` to `http://127.0.0.1:3001/api/*` via a catch-all route handler (not a rewrite). The admin dashboard uses this path.
 - **Admin auth**: The `/admin` route tree is protected by Supabase auth. Accessing `/admin` without a session redirects to `/admin/login`.
-- **TMDB API key**: The homepage requires a `TMDB_API_KEY` env var (not listed in the README). Without it, the homepage shows "Loading..." indefinitely as all TMDB API routes return 500.
+- **TMDB API key**: The homepage requires a `TMDB_API_KEY` env var. Without it, the homepage shows "Loading..." indefinitely as all TMDB API routes return 500.
 
 ### Lint / Build / Test
 

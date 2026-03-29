@@ -1,12 +1,20 @@
 # PoPoTube
 
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
+[![Fastify](https://img.shields.io/badge/Fastify-5-black?logo=fastify)](https://fastify.dev/)
+[![React](https://img.shields.io/badge/React-19-149eca?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Real-Debrid](https://img.shields.io/badge/Real--Debrid-Streaming-orange)](https://real-debrid.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Realtime-3ecf8e?logo=supabase&logoColor=white)](https://supabase.com/)
+
 PoPoTube is a self-hosted web application that lets you search for torrents via Jackett, instantly retrieve video files using **Real-Debrid**, and stream them directly in the browser — no local torrent clients, no disk storage, no transcoding delays.
 
-The app integrates with **Torrentio** and **Comet** as torrent indexer sources alongside Jackett, with Real-Debrid handling all downloads. Videos are streamed via server-side proxy for seamless browser playback.
+The app integrates with **Torrentio** and **Comet** as torrent discovery sources alongside Jackett, with Real-Debrid handling downloads. The public watch flow now prefers Torrentio candidates that are already cached on Real-Debrid by checking torrent hash instant-availability before queueing ingestion. Videos are streamed via server-side proxy for seamless browser playback.
 
 ## ✨ Features
 
 - **Torrent Search**: Integrated with Jackett, Torrentio, and Comet to search across public and private trackers.
+- **Cache-Aware Selection**: Public playback prefers Torrentio candidates already available on Real-Debrid for faster startup.
 - **Zero Local Storage**: Files are downloaded by Real-Debrid and streamed directly via HTTP — nothing touches your server's disk.
 - **Instant Playback**: Completed downloads are unrestricted through Real-Debrid and proxied to the browser for immediate streaming.
 - **Background Worker**: BullMQ + Redis ingestion pipeline with real-time progress updates via Supabase Realtime.
@@ -31,8 +39,12 @@ The app integrates with **Torrentio** and **Comet** as torrent indexer sources a
 User clicks "Watch" on a movie
         │
         ▼
-  Jackett / Torrentio / Comet
-  search for the best torrent
+  Torrentio fetches movie streams
+  by TMDb/IMDb metadata
+        │
+        ▼
+  Real-Debrid instantAvailability
+  prefers already cached hashes
         │
         ▼
   Real-Debrid downloads the torrent
@@ -45,7 +57,7 @@ User clicks "Watch" on a movie
 
 ## 🚀 Getting Started
 
-### Docker Compose (Recommended)
+### Docker Compose + Host Frontend (Recommended)
 
 #### 1. Prerequisites
 
@@ -68,8 +80,17 @@ SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 REDIS_URL=redis://...
 
 # Jackett
-JACKETT_URL=http://jackett:9117
+JACKETT_URL=http://127.0.0.1:9117
 JACKETT_API_KEY=<your-jackett-api-key>
+
+# Comet
+COMET_URL=http://127.0.0.1:8000
+
+# Backend
+BACKEND_URL=http://127.0.0.1:3001
+
+# TMDB
+TMDB_API_KEY=<your-tmdb-api-key>
 
 # Real-Debrid
 REAL_DEBRID_API_KEY=<your-real-debrid-api-token>
@@ -78,21 +99,23 @@ REAL_DEBRID_API_KEY=<your-real-debrid-api-token>
 #### 3. Build & Run
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build   # Jackett + backend + Comet + Postgres
+npm run dev                    # Frontend on the host
 ```
 
 | Service | URL |
 |---------|-----|
 | Frontend | `http://localhost:3000` |
 | Backend API | `http://localhost:3001` |
-| Jackett UI | Port `9117` on localhost |
+| Jackett UI | `http://localhost:9117` |
+| Comet | `http://localhost:8000` |
 
 #### 4. Configure Jackett
 
 1. Open Jackett's web UI at port `9117` on localhost.
 2. Copy the API Key from the top-right and add it to your `.env` as `JACKETT_API_KEY`.
 3. Add your preferred indexers (e.g., 1337x, ThePirateBay, RARBG).
-4. Restart the stack: `docker compose down && docker compose up -d`.
+4. Restart the stack if needed: `docker compose down && docker compose up -d`.
 
 ### Local Development
 
@@ -101,15 +124,21 @@ docker compose up -d --build
 npm install              # Frontend (root)
 npm install --prefix backend  # Backend
 
-# Start Redis
+# Start infra
+docker compose up -d jackett comet comet-postgres
 redis-server --daemonize yes
 
 # Start backend (port 3001)
 cd backend && npm run dev
 
-# Start frontend (port 3000) — in a separate terminal
+# Start frontend (port 3000) in a separate terminal
 npm run dev
 ```
+
+Notes:
+- The root `docker-compose.yml` does not run the frontend. Run Next.js on the host for fast refresh.
+- Use `http://127.0.0.1:9117` for `JACKETT_URL` when the frontend is running on your machine.
+- Do not run another Comet compose stack on port `8000` at the same time.
 
 ## 🗺️ Roadmap
 
