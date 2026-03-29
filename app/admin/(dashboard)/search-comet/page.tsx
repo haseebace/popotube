@@ -24,7 +24,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TMDBSearchAutocomplete } from "@/components/admin/TMDBSearchAutocomplete";
-import { parseTorrentMetadata } from "@/utils/torrent-parser";
+import {
+  formatSeasonEpisodeLabel,
+  parseReleaseMetadata,
+} from "@/utils/release-metadata";
 
 interface CometResult {
   title: string;
@@ -92,7 +95,7 @@ export default function CometSearchPage() {
     if (!result.magnetUri) return;
     setIsIngesting(result.infoHash);
     
-    const metadata = parseTorrentMetadata(result.title);
+    const metadata = parseReleaseMetadata(result.title);
 
     try {
       const res = await fetch('/api/backend/ingest', {
@@ -238,16 +241,18 @@ export default function CometSearchPage() {
               </TableRow>
             ) : (
               sortedResults.map((res, i) => {
-                const metadata = parseTorrentMetadata(res.title);
+                const metadata = parseReleaseMetadata(res.title);
+                const seLabel = formatSeasonEpisodeLabel(metadata);
                 return (
                   <TableRow key={i} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="pl-6 max-w-[400px]">
                       <div className="flex flex-col gap-1 py-1">
                         <span className="font-bold text-sm leading-tight line-clamp-2" title={res.title}>{res.title}</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                           {metadata.quality !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase font-bold py-0">{metadata.quality}</Badge>}
-                           {metadata.codec !== 'unknown' && <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 text-muted-foreground">{metadata.codec}</Badge>}
-                           <Badge variant="secondary" className="text-[10px] py-0 font-medium">{res.details}</Badge>
+                        <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] uppercase">
+                           {seLabel && <Badge variant="outline">{seLabel}</Badge>}
+                           {metadata.quality !== 'unknown' && <Badge variant="outline">{metadata.quality}</Badge>}
+                           {metadata.codec !== 'unknown' && <Badge variant="secondary">{metadata.codec}</Badge>}
+                           <Badge variant="secondary">{res.details}</Badge>
                         </div>
                       </div>
                     </TableCell>

@@ -42,6 +42,36 @@ export interface RDUnrestrictLink {
   streamable: number;
 }
 
+export interface RDInstantAvailabilityFile {
+  fileId: number;
+  filename: string;
+  filesize: number;
+}
+
+export interface RDInstantAvailabilityVariant {
+  files: RDInstantAvailabilityFile[];
+}
+
+export interface RDInstantAvailabilityHost {
+  host: string;
+  variants: RDInstantAvailabilityVariant[];
+}
+
+export interface RDInstantAvailabilityResult {
+  hash: string;
+  isInstantAvailable: boolean;
+  hosts: Record<string, RDInstantAvailabilityHost>;
+  instantFileVariants: RDInstantAvailabilityVariant[];
+}
+
+type RDInstantAvailabilityResponse = Record<
+  string,
+  Record<
+    string,
+    Array<Record<string, { filename?: string; filesize?: number }>>
+  >
+>;
+
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.webm', '.mov', '.m4v', '.ts', '.m2ts'];
 const LOW_VALUE_PATH_PATTERNS = [
   /\bsample\b/i,
@@ -97,6 +127,50 @@ function titleMatchScore(path: string, expectedTitle?: string): number {
 function isVideoFile(path: string): boolean {
   const lower = path.toLowerCase();
   return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+function normalizeInstantAvailabilityResponse(
+  hash: string,
+  payload: RDInstantAvailabilityResponse | null | undefined
+): RDInstantAvailabilityResult {
+  const normalizedHash = hash.toLowerCase();
+  const hashEntry = payload?.[normalizedHash] ?? payload?.[hash] ?? {};
+  const hosts = Object.entries(hashEntry).reduce<Record<string, RDInstantAvailabilityHost>>(
+    (acc, [host, variants]) => {
+      const normalizedVariants = Array.isArray(variants)
+        ? variants
+            .map((variant) => {
+              const files = Object.entries(variant || {})
+                .map(([fileId, fileInfo]) => ({
+                  fileId: Number(fileId),
+                  filename: fileInfo?.filename || '',
+                  filesize: Number(fileInfo?.filesize || 0),
+                }))
+                .filter((file) => Number.isFinite(file.fileId) && file.fileId > 0);
+
+              return files.length > 0 ? { files } : null;
+            })
+            .filter((variant): variant is RDInstantAvailabilityVariant => Boolean(variant))
+        : [];
+
+      acc[host] = {
+        host,
+        variants: normalizedVariants,
+      };
+
+      return acc;
+    },
+    {}
+  );
+
+  const instantFileVariants = hosts.rd?.variants ?? [];
+
+  return {
+    hash: normalizedHash,
+    isInstantAvailable: instantFileVariants.length > 0,
+    hosts,
+    instantFileVariants,
+  };
 }
 
 function scoreRdFile(file: RDFile, expectedTitle?: string): number {
@@ -254,6 +328,21 @@ export class RealDebridClient {
   }
 
   /**
+   * Checks whether a torrent hash is instantly available on Real-Debrid.
+   */
+  async getInstantAvailability(hash: string, timeoutMs: number = 2500): Promise<RDInstantAvailabilityResult> {
+    const normalizedHash = hash.toLowerCase();
+    const response = await this.client.get<RDInstantAvailabilityResponse>(
+      `/torrents/instantAvailability/${normalizedHash}`,
+      {
+        timeout: timeoutMs,
+      }
+    );
+
+    return normalizeInstantAvailabilityResponse(normalizedHash, response.data);
+  }
+
+  /**
    * Fetch a list of active and recent torrents from Real-Debrid.
    */
   async getTorrents(page: number = 1, limit: number = 50): Promise<{ data: any[], total: number }> {
@@ -378,4 +467,3 @@ export class RealDebridClient {
 }
 
 export const rdClient = new RealDebridClient();
-

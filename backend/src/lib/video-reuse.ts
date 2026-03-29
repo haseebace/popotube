@@ -1,5 +1,11 @@
 import { supabase } from './supabase';
 
+/**
+ * TV (future): reuse is movie-only today (`tmdb_id` on `videos`). Episode-aware
+ * matching will need TMDB TV + season_number + episode_number (or episode IDs)
+ * and Torrentio series URLs — see project plan milestone.
+ */
+
 const STATUS_PRIORITY: Record<string, number> = {
   completed: 1000,
   exposing_http: 740,

@@ -68,8 +68,16 @@ export const ingestionQueue = new Queue(INGESTION_QUEUE_NAME, {
 export const ingestionWorker = new Worker(
   INGESTION_QUEUE_NAME,
   async (job) => {
-    logger.info(`🚀 [Job ${job.id}] Started processing ingestion job`);
-    const { videoId, magnet_uri } = job.data;
+    const { videoId, magnet_uri, rdExpectedCached } = job.data as {
+      videoId: string;
+      magnet_uri: string;
+      rdExpectedCached?: boolean;
+    };
+    logger.info({
+      jobId: job.id,
+      videoId,
+      rd_expected_cached: Boolean(rdExpectedCached),
+    }, 'Started processing ingestion job');
     let rdTorrentId: string | null = null;
     const timing = createStepTimer(job.id, videoId);
 

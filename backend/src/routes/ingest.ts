@@ -1,6 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../lib/supabase';
 import { ingestionQueue } from '../queue/ingestion';
+import {
+  mergeVideoParseColumns,
+  parseReleaseMetadata,
+  releaseMetadataToVideoColumns,
+} from '../lib/release-metadata';
 import { findBestVideoForTmdb, isReusableVideoStatus } from '../lib/video-reuse';
 
 interface IngestBody {
@@ -51,6 +56,23 @@ export default async function (fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid magnet link' });
       }
 
+      const parsedCols = releaseMetadataToVideoColumns(await parseReleaseMetadata(title));
+      const buildVideoFields = (existing?: Record<string, unknown>) => {
+        const merged = existing
+          ? mergeVideoParseColumns(parsedCols, existing)
+          : parsedCols;
+        return {
+          quality: quality?.trim() ? quality : merged.quality,
+          codec: codec?.trim() ? codec : merged.codec,
+          source: source?.trim() ? source : merged.source,
+          season_number: merged.season_number,
+          episode_number: merged.episode_number,
+          release_year: merged.release_year,
+          release_group: merged.release_group,
+          release_parse_extras: merged.release_parse_extras,
+        };
+      };
+
       if (tmdb_id) {
         const existingVideoBeforeInsert = await findBestVideoForTmdb(tmdb_id);
         if (existingVideoBeforeInsert && isReusableVideoStatus(existingVideoBeforeInsert.status)) {
@@ -81,10 +103,8 @@ export default async function (fastify: FastifyInstance) {
           title,
           magnet_uri: magnet,
           size_bytes: size,
-          tmdb_id: tmdb_id || null, // store the tmdb_id if provided
-          quality: quality || null,
-          codec: codec || null,
-          source: source || null,
+          tmdb_id: tmdb_id || null,
+          ...buildVideoFields(),
         })
         .select()
         .single();
@@ -112,10 +132,8 @@ export default async function (fastify: FastifyInstance) {
                  status: 'pending',
                  error_message: null,
                  progress: 0,
-                 tmdb_id: tmdb_id || existingData.tmdb_id, // ensure tmdb_id is attached if supplied
-                 quality: quality || existingData.quality,
-                 codec: codec || existingData.codec,
-                 source: source || existingData.source,
+                 tmdb_id: tmdb_id || existingData.tmdb_id,
+                 ...buildVideoFields(existingData),
                })
                .eq('id', existingData.id)
                .select()
@@ -130,9 +148,7 @@ export default async function (fastify: FastifyInstance) {
              if (tmdb_id && !existingData.tmdb_id) {
                 await supabase.from('videos').update({ 
                   tmdb_id,
-                  quality: quality || existingData.quality,
-                  codec: codec || existingData.codec,
-                  source: source || existingData.source
+                  ...buildVideoFields(existingData),
                 }).eq('id', existingData.id);
              }
 

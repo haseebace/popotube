@@ -1,13 +1,21 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
+import { rdClient, RDInstantAvailabilityResult } from '../lib/real-debrid';
 import { ingestionQueue } from '../queue/ingestion';
-import { parseTorrentMetadata } from '../lib/torrent-parser';
+import {
+  mergeVideoParseColumns,
+  parseReleaseMetadata,
+  releaseMetadataToVideoColumns,
+} from '../lib/release-metadata';
 import { findBestVideoForTmdb, isReusableVideoStatus } from '../lib/video-reuse';
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = process.env.TMDB_BASE_URL || 'https://api.themoviedb.org/3';
 const TORRENTIO_BASE_URL = 'https://torrentio.strem.fun';
+const RD_CACHE_CHECK_CONCURRENCY = 5;
+const RD_CACHE_CHECK_STAGE_TIMEOUT_MS = 2500;
+const RD_CACHE_CHECK_REQUEST_TIMEOUT_MS = 2000;
 
 interface TriggerIngestionBody {
   tmdb_id: number;
@@ -26,6 +34,29 @@ interface TorrentioCandidate {
   codec: string;
   releaseSource: string;
   details: string;
+  isInstantAvailable: boolean;
+  instantAvailability?: RDInstantAvailabilityResult;
+}
+
+interface ScoredTorrentioCandidate extends TorrentioCandidate {
+  score: number;
+  scoreReasons: string[];
+}
+
+interface TorrentioStream {
+  title?: string;
+  name?: string;
+  infoHash?: string;
+}
+
+interface CacheEnrichmentResult {
+  candidates: TorrentioCandidate[];
+  checkedCount: number;
+  cachedCount: number;
+  durationMs: number;
+  usedForRanking: boolean;
+  timedOut: boolean;
+  failedCount: number;
 }
 
 function normalizeTitle(value: string): string {
@@ -169,31 +200,140 @@ async function resolveImdbIdFromTmdb(tmdbId: number): Promise<string | null> {
 
 async function fetchTorrentioCandidates(imdbId: string): Promise<TorrentioCandidate[]> {
   const torrentioUrl = `${TORRENTIO_BASE_URL}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/movie/${imdbId}.json`;
-  const response = await axios.get(torrentioUrl, { timeout: 15000 });
+  const response = await axios.get<{ streams?: TorrentioStream[] }>(torrentioUrl, { timeout: 15000 });
   const streams = response.data?.streams || [];
 
-  return streams.map((stream: any) => {
-    const parts = String(stream.title || '').split('\n');
-    const candidateTitle = parts[0] || stream.name || '';
-    const infoLine = parts[1] || '';
-    const sizeMatch = infoLine.match(/(?:💾|size:)?\s*([0-9.]+\s*(GB|MB|KB|B))/i);
-    const seederMatch = infoLine.match(/(?:👤|S:)\s*([0-9]+)/i);
-    const sizeStr = sizeMatch ? sizeMatch[1].trim() : '0 B';
-    const metadata = parseTorrentMetadata(candidateTitle);
+  return Promise.all(
+    streams.map(async (stream) => {
+      const parts = String(stream.title || '').split('\n');
+      const candidateTitle = parts[0] || stream.name || '';
+      const infoLine = parts[1] || '';
+      const sizeMatch = infoLine.match(/(?:💾|size:)?\s*([0-9.]+\s*(GB|MB|KB|B))/i);
+      const seederMatch = infoLine.match(/(?:👤|S:)\s*([0-9]+)/i);
+      const sizeStr = sizeMatch ? sizeMatch[1].trim() : '0 B';
+      const metadata = await parseReleaseMetadata(candidateTitle);
+      const normalizedInfoHash = stream.infoHash?.toLowerCase() || null;
 
+      return {
+        title: candidateTitle,
+        sizeBytes: parseSizeToBytes(sizeStr),
+        seeders: seederMatch ? parseInt(seederMatch[1], 10) : 0,
+        magnetUri: normalizedInfoHash ? `magnet:?xt=urn:btih:${normalizedInfoHash}` : null,
+        infoHash: normalizedInfoHash,
+        source: stream.name || 'torrentio',
+        quality: metadata.quality,
+        codec: metadata.codec,
+        releaseSource: metadata.source,
+        details: infoLine,
+        isInstantAvailable: false,
+      };
+    })
+  );
+}
+
+async function enrichCandidatesWithInstantAvailability(
+  candidates: TorrentioCandidate[]
+): Promise<CacheEnrichmentResult> {
+  const startedAt = Date.now();
+  const enrichedCandidates: TorrentioCandidate[] = candidates.map((candidate) => ({
+    ...candidate,
+    isInstantAvailable: false,
+    instantAvailability: undefined,
+  }));
+
+  if (enrichedCandidates.length === 0) {
     return {
-      title: candidateTitle,
-      sizeBytes: parseSizeToBytes(sizeStr),
-      seeders: seederMatch ? parseInt(seederMatch[1], 10) : 0,
-      magnetUri: stream.infoHash ? `magnet:?xt=urn:btih:${stream.infoHash}` : null,
-      infoHash: stream.infoHash || null,
-      source: stream.name || 'torrentio',
-      quality: metadata.quality,
-      codec: metadata.codec,
-      releaseSource: metadata.source,
-      details: infoLine,
+      candidates: enrichedCandidates,
+      checkedCount: 0,
+      cachedCount: 0,
+      durationMs: 0,
+      usedForRanking: true,
+      timedOut: false,
+      failedCount: 0,
     };
-  });
+  }
+
+  let nextIndex = 0;
+  let checkedCount = 0;
+  let cachedCount = 0;
+  let failedCount = 0;
+  let timedOut = false;
+  const deadline = startedAt + RD_CACHE_CHECK_STAGE_TIMEOUT_MS;
+
+  const worker = async () => {
+    while (true) {
+      if (Date.now() >= deadline) {
+        timedOut = true;
+        return;
+      }
+
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      if (currentIndex >= enrichedCandidates.length) {
+        return;
+      }
+
+      const candidate = enrichedCandidates[currentIndex];
+      if (!candidate.infoHash) {
+        continue;
+      }
+
+      try {
+        const availability = await rdClient.getInstantAvailability(
+          candidate.infoHash,
+          RD_CACHE_CHECK_REQUEST_TIMEOUT_MS
+        );
+
+        enrichedCandidates[currentIndex] = {
+          ...candidate,
+          isInstantAvailable: availability.isInstantAvailable,
+          instantAvailability: availability,
+        };
+        checkedCount += 1;
+        if (availability.isInstantAvailable) {
+          cachedCount += 1;
+        }
+      } catch {
+        failedCount += 1;
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(RD_CACHE_CHECK_CONCURRENCY, enrichedCandidates.length) },
+      () => worker()
+    )
+  );
+
+  const usedForRanking = !timedOut && failedCount === 0;
+
+  return {
+    candidates: enrichedCandidates,
+    checkedCount,
+    cachedCount,
+    durationMs: Date.now() - startedAt,
+    usedForRanking,
+    timedOut,
+    failedCount,
+  };
+}
+
+function compareScoredCandidates(a: ScoredTorrentioCandidate, b: ScoredTorrentioCandidate, useCacheSignal: boolean): number {
+  if (useCacheSignal && a.isInstantAvailable !== b.isInstantAvailable) {
+    return Number(b.isInstantAvailable) - Number(a.isInstantAvailable);
+  }
+
+  if (a.score !== b.score) {
+    return b.score - a.score;
+  }
+
+  if (a.seeders !== b.seeders) {
+    return b.seeders - a.seeders;
+  }
+
+  return b.sizeBytes - a.sizeBytes;
 }
 
 export default async function (fastify: FastifyInstance) {
@@ -263,15 +403,41 @@ export default async function (fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'No 1080p-or-higher Torrentio streams were found for this movie' });
       }
 
-      // 2. Rank torrents with title, year, quality, source, codec, size, and seeder signals.
-      const scoredResults = validResults.map((candidate) => {
+      const cacheAvailability = await enrichCandidatesWithInstantAvailability(validResults);
+      fastify.log.info({
+        tmdb_id,
+        imdb_id: imdbId,
+        duration_ms: cacheAvailability.durationMs,
+        checked_count: cacheAvailability.checkedCount,
+        cached_count: cacheAvailability.cachedCount,
+        used_for_ranking: cacheAvailability.usedForRanking,
+        timed_out: cacheAvailability.timedOut,
+        failed_count: cacheAvailability.failedCount,
+      }, 'Real-Debrid instant availability check completed');
+
+      // 2. Rank torrents with cache status, title, year, quality, source, codec, size, and seeder signals.
+      const scoredResults: ScoredTorrentioCandidate[] = cacheAvailability.candidates.map((candidate) => {
         const { score, reasons } = scoreTorrentResult(candidate, title, year);
-        const r = candidate;
-        return { ...r, score, scoreReasons: reasons };
+        return { ...candidate, score, scoreReasons: reasons };
       });
 
-      const bestResult = scoredResults.sort((a: any, b: any) => b.score - a.score)[0];
-      const metadata = parseTorrentMetadata(bestResult.title);
+      const rankedResults = [...scoredResults].sort((a, b) =>
+        compareScoredCandidates(a, b, cacheAvailability.usedForRanking)
+      );
+      const bestResult = rankedResults[0];
+      const parsedRelease = await parseReleaseMetadata(bestResult.title);
+      const videoParseCols = releaseMetadataToVideoColumns(parsedRelease);
+
+      fastify.log.info({
+        tmdb_id,
+        imdb_id: imdbId,
+        selected_info_hash: bestResult.infoHash,
+        selected_title: bestResult.title,
+        selected_is_cached: bestResult.isInstantAvailable,
+        selected_quality: bestResult.quality,
+        selected_seeders: bestResult.seeders,
+        selected_size: bestResult.sizeBytes,
+      }, bestResult.isInstantAvailable ? 'Real-Debrid cache hit selected from Torrentio candidates' : 'No Real-Debrid cache hit found; selected best non-cached Torrentio candidate');
 
       const magnet = bestResult.magnetUri;
       const size = bestResult.sizeBytes;
@@ -306,6 +472,12 @@ export default async function (fastify: FastifyInstance) {
       fastify.log.info({
         info_hash,
         title,
+        torrentio_result_count: candidates.length,
+        valid_1080_plus_count: validResults.length,
+        rd_cache_checked_count: cacheAvailability.checkedCount,
+        rd_cached_count: cacheAvailability.cachedCount,
+        selected_info_hash: info_hash,
+        selected_is_cached: bestResult.isInstantAvailable,
         selected_title: bestResult.title,
         selected_seeders: bestResult.seeders,
         selected_size: bestResult.sizeBytes,
@@ -313,11 +485,12 @@ export default async function (fastify: FastifyInstance) {
         selected_source: bestResult.source,
         selected_score: bestResult.score,
         selected_score_reasons: bestResult.scoreReasons,
-        top_candidates: scoredResults
-          .sort((a: any, b: any) => b.score - a.score)
+        top_candidates: rankedResults
           .slice(0, 5)
-          .map((result: any) => ({
+          .map((result) => ({
             title: result.title,
+            info_hash: result.infoHash,
+            is_cached: result.isInstantAvailable,
             seeders: result.seeders,
             size: result.sizeBytes,
             quality: result.quality,
@@ -336,9 +509,7 @@ export default async function (fastify: FastifyInstance) {
           magnet_uri: magnet,
           size_bytes: size,
           tmdb_id,
-          quality: metadata.quality !== 'unknown' ? metadata.quality : null,
-          codec: metadata.codec !== 'unknown' ? metadata.codec : null,
-          source: metadata.source !== 'unknown' ? metadata.source : null,
+          ...videoParseCols,
         })
         .select()
         .single();
@@ -371,9 +542,7 @@ export default async function (fastify: FastifyInstance) {
                  error_message: null,
                  progress: 0,
                  tmdb_id: tmdb_id || existingData.tmdb_id,
-                 quality: metadata.quality !== 'unknown' ? metadata.quality : existingData.quality,
-                 codec: metadata.codec !== 'unknown' ? metadata.codec : existingData.codec,
-                 source: metadata.source !== 'unknown' ? metadata.source : existingData.source,
+                 ...mergeVideoParseColumns(videoParseCols, existingData),
                })
                .eq('id', existingData.id)
                .select()
@@ -387,9 +556,7 @@ export default async function (fastify: FastifyInstance) {
              if (tmdb_id && !existingData.tmdb_id) {
                 await supabase.from('videos').update({ 
                   tmdb_id,
-                  quality: metadata.quality !== 'unknown' ? metadata.quality : existingData.quality,
-                  codec: metadata.codec !== 'unknown' ? metadata.codec : existingData.codec,
-                  source: metadata.source !== 'unknown' ? metadata.source : existingData.source
+                  ...mergeVideoParseColumns(videoParseCols, existingData),
                 }).eq('id', existingData.id);
              }
 
@@ -422,6 +589,7 @@ export default async function (fastify: FastifyInstance) {
       const job = await ingestionQueue.add('download', {
         videoId: videoRecord.id,
         magnet_uri: videoRecord.magnet_uri,
+        rdExpectedCached: bestResult.isInstantAvailable,
       }, {
         jobId: videoRecord.id,
         attempts: 3,
@@ -436,6 +604,7 @@ export default async function (fastify: FastifyInstance) {
         info_hash,
         videoId: videoRecord.id,
         jobId: job.id,
+        selected_is_cached: bestResult.isInstantAvailable,
         queue_duration_ms: Date.now() - queueStartedAt,
         total_duration_ms: Date.now() - startedAt,
       }, 'Trigger ingestion queued successfully');

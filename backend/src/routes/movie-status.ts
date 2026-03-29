@@ -12,7 +12,7 @@ export default async function (fastify: FastifyInstance) {
 
       const data = await findBestVideoForTmdb(
         parseInt(tmdbId, 10),
-        'id, status, stream_url, playback_source, progress, title, error_message, quality, codec, source, tmdb_id, bullmq_job_id'
+        'id, status, stream_url, playback_source, progress, title, error_message, quality, codec, source, tmdb_id, bullmq_job_id, season_number, episode_number, release_year, release_group, release_parse_extras'
       );
 
       if (!data) {

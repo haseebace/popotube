@@ -34,7 +34,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TMDBSearchAutocomplete } from "@/components/admin/TMDBSearchAutocomplete";
-import { parseTorrentMetadata } from "@/utils/torrent-parser";
+import {
+  formatSeasonEpisodeLabel,
+  parseReleaseMetadata,
+} from "@/utils/release-metadata";
 
 interface TorrentResult {
   title: string;
@@ -134,7 +137,7 @@ function ResultRow({
       return;
     }
 
-    const metadata = parseTorrentMetadata(result.title);
+    const metadata = parseReleaseMetadata(result.title);
 
     console.log("🚀 [Ingest] Sending request:", {
       magnet: result.magnetUri,
@@ -180,7 +183,8 @@ function ResultRow({
     }
   }
 
-  const metadata = parseTorrentMetadata(result.title);
+  const metadata = parseReleaseMetadata(result.title);
+  const seLabel = formatSeasonEpisodeLabel(metadata);
 
   return (
     <TableRow>
@@ -195,38 +199,19 @@ function ResultRow({
           >
             {result.title}
           </a>
-          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] uppercase">
+            {seLabel && <Badge variant="outline">{seLabel}</Badge>}
             {metadata.quality !== "unknown" && (
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase py-0 px-1.5 font-normal"
-              >
-                {metadata.quality}
-              </Badge>
+              <Badge variant="outline">{metadata.quality}</Badge>
             )}
             {metadata.codec !== "unknown" && (
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase py-0 px-1.5 font-normal text-muted-foreground"
-              >
-                {metadata.codec}
-              </Badge>
+              <Badge variant="secondary">{metadata.codec}</Badge>
             )}
             {metadata.source !== "unknown" && (
-              <Badge
-                variant="outline"
-                className="text-[10px] uppercase py-0 px-1.5 font-normal text-muted-foreground"
-              >
-                {metadata.source}
-              </Badge>
+              <Badge variant="secondary">{metadata.source}</Badge>
             )}
             {result.category && (
-              <Badge
-                variant="secondary"
-                className="text-[10px] py-0 px-1.5 font-normal"
-              >
-                {result.category}
-              </Badge>
+              <Badge variant="secondary">{result.category}</Badge>
             )}
           </div>
         </div>
