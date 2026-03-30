@@ -1,5 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { motion } from "framer-motion";
+
+const easeNoir = [0.25, 0.1, 0.25, 1] as const;
 
 export type GridMovie = {
   id: number;
@@ -39,100 +44,148 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
       : null;
 
   return (
-    <section className="px-12">
+    <motion.section
+      className="px-12"
+      inherit={false}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-48px", amount: 0.12 }}
+      transition={{ duration: 0.5, ease: easeNoir }}
+    >
       <div className="mb-12">
-        <span className="label-md mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
+        <motion.span
+          className="label-md mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500"
+          inherit={false}
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, ease: easeNoir, delay: 0.1 }}
+        >
           02
-        </span>
-        <h2 className="text-3xl font-bold uppercase tracking-tight text-noir-primary">
+        </motion.span>
+        <motion.h2
+          className="text-3xl font-bold uppercase tracking-tight text-noir-primary"
+          inherit={false}
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, ease: easeNoir, delay: 0.15 }}
+        >
           Indie Cinema
-        </h2>
+        </motion.h2>
       </div>
       <div className="grid h-[600px] grid-cols-1 gap-6 md:grid-cols-12">
-        <Link
-          href={`/watch/${large.id}`}
-          className="group relative col-span-1 overflow-hidden rounded-noir bg-surface-container-low md:col-span-7"
+        <motion.div
+          className="col-span-1 md:col-span-7"
+          inherit={false}
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, margin: "-48px" }}
+          transition={{ duration: 0.6, ease: easeNoir, delay: 0.2 }}
         >
-          {largeSrc ? (
-            <Image
-              src={largeSrc}
-              alt={large.title}
-              fill
-              className="object-cover transition-transform duration-1000 group-hover:scale-105"
-              sizes="(max-width: 768px) 100vw, 58vw"
-            />
-          ) : null}
-          <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent p-8">
-            <span className="label-md mb-2 text-xs font-bold uppercase tracking-[0.1em] text-noir-primary">
-              Director&apos;s Cut
-            </span>
-            <h3 className="text-4xl font-bold uppercase tracking-tighter text-noir-primary">
-              {large.title}
-            </h3>
-            {large.overview ? (
-              <p className="mt-2 line-clamp-2 max-w-md text-neutral-300">
-                {large.overview}
-              </p>
+          <Link
+            href={`/watch/${large.id}`}
+            className="group relative block h-full w-full overflow-hidden rounded-noir bg-surface-container-low"
+          >
+            {largeSrc ? (
+              <Image
+                src={largeSrc}
+                alt={large.title}
+                fill
+                className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                sizes="(max-width: 768px) 100vw, 58vw"
+              />
             ) : null}
-          </div>
-        </Link>
+            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent p-8">
+              <span className="label-md mb-2 text-xs font-bold uppercase tracking-[0.1em] text-noir-primary">
+                Director&apos;s Cut
+              </span>
+              <h3 className="text-4xl font-bold uppercase tracking-tighter text-noir-primary">
+                {large.title}
+              </h3>
+              {large.overview ? (
+                <p className="mt-2 line-clamp-2 max-w-md text-neutral-300">
+                  {large.overview}
+                </p>
+              ) : null}
+            </div>
+          </Link>
+        </motion.div>
         <div className="col-span-1 grid grid-rows-2 gap-6 md:col-span-5">
-          <Link
-            href={`/watch/${smallTop.id}`}
-            className="group relative min-h-0 overflow-hidden rounded-noir bg-surface-container-low"
+          <motion.div
+            className="relative min-h-0"
+            inherit={false}
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-48px" }}
+            transition={{ duration: 0.5, ease: easeNoir, delay: 0.3 }}
           >
-            {topSrc ? (
-              <Image
-                src={topSrc}
-                alt={smallTop.title}
-                fill
-                className="object-cover transition-transform duration-1000 group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, 40vw"
-              />
-            ) : null}
-            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 transition-opacity group-hover:from-black/75">
-              <span className="label-md mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-noir-primary">
-                Spotlight
-              </span>
-              <h3 className="text-xl font-bold uppercase tracking-tight text-noir-primary">
-                {smallTop.title}
-              </h3>
-              {smallTop.overview ? (
-                <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-neutral-300">
-                  {overviewTeaser(smallTop.overview, 110)}
-                </p>
+            <Link
+              href={`/watch/${smallTop.id}`}
+              className="group relative block h-full w-full overflow-hidden rounded-noir bg-surface-container-low"
+            >
+              {topSrc ? (
+                <Image
+                  src={topSrc}
+                  alt={smallTop.title}
+                  fill
+                  className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                />
               ) : null}
-            </div>
-          </Link>
-          <Link
-            href={`/watch/${smallBottom.id}`}
-            className="group relative min-h-0 overflow-hidden rounded-noir bg-surface-container-low"
+              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 transition-opacity group-hover:from-black/75">
+                <span className="label-md mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-noir-primary">
+                  Spotlight
+                </span>
+                <h3 className="text-xl font-bold uppercase tracking-tight text-noir-primary">
+                  {smallTop.title}
+                </h3>
+                {smallTop.overview ? (
+                  <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-neutral-300">
+                    {overviewTeaser(smallTop.overview, 110)}
+                  </p>
+                ) : null}
+              </div>
+            </Link>
+          </motion.div>
+          <motion.div
+            className="relative min-h-0"
+            inherit={false}
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-48px" }}
+            transition={{ duration: 0.5, ease: easeNoir, delay: 0.4 }}
           >
-            {botSrc ? (
-              <Image
-                src={botSrc}
-                alt={smallBottom.title}
-                fill
-                className="object-cover transition-transform duration-1000 group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, 40vw"
-              />
-            ) : null}
-            <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 transition-opacity group-hover:from-black/75">
-              <span className="label-md mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-noir-primary">
-                Staff pick
-              </span>
-              <h3 className="text-xl font-bold uppercase tracking-tight text-noir-primary">
-                {smallBottom.title}
-              </h3>
-              {smallBottom.overview ? (
-                <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-neutral-300">
-                  {overviewTeaser(smallBottom.overview, 110)}
-                </p>
+            <Link
+              href={`/watch/${smallBottom.id}`}
+              className="group relative block h-full w-full overflow-hidden rounded-noir bg-surface-container-low"
+            >
+              {botSrc ? (
+                <Image
+                  src={botSrc}
+                  alt={smallBottom.title}
+                  fill
+                  className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                />
               ) : null}
-            </div>
-          </Link>
+              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/35 to-transparent p-6 transition-opacity group-hover:from-black/75">
+                <span className="label-md mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-noir-primary">
+                  Staff pick
+                </span>
+                <h3 className="text-xl font-bold uppercase tracking-tight text-noir-primary">
+                  {smallBottom.title}
+                </h3>
+                {smallBottom.overview ? (
+                  <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-neutral-300">
+                    {overviewTeaser(smallBottom.overview, 110)}
+                  </p>
+                ) : null}
+              </div>
+            </Link>
+          </motion.div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
