@@ -73,7 +73,7 @@ export default function HomeFeaturedHero({ movie, genreLine }: Props) {
 
   return (
     <motion.section
-      className="relative h-[921px] w-full overflow-hidden bg-surface-container-lowest"
+      className="relative h-[85svh] w-full overflow-hidden bg-surface-container-lowest md:h-[921px]"
       inherit={false}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -105,7 +105,7 @@ export default function HomeFeaturedHero({ movie, genreLine }: Props) {
         animate={{ opacity: 1 }}
         transition={heroGradientTransition}
       />
-      <div className="absolute bottom-0 left-0 z-10 w-full px-12 pb-24">
+      <div className="absolute bottom-0 left-0 z-10 w-full px-5 pb-16 md:px-12 md:pb-24">
         <div className="max-w-3xl space-y-6">
           <motion.div
             className="flex flex-wrap items-center gap-4"
@@ -120,7 +120,7 @@ export default function HomeFeaturedHero({ movie, genreLine }: Props) {
             </span>
           </motion.div>
           <motion.h1
-            className="text-6xl font-extrabold leading-tight tracking-tighter text-noir-primary md:text-8xl"
+            className="text-4xl font-extrabold leading-tight tracking-tighter text-noir-primary sm:text-6xl md:text-8xl"
             inherit={false}
             {...fadeUp(tTitle)}
           >
@@ -145,7 +145,7 @@ export default function HomeFeaturedHero({ movie, genreLine }: Props) {
 
           {movie.overview ? (
             <motion.p
-              className="max-w-xl text-lg font-light leading-relaxed text-noir-secondary"
+              className="max-w-xl text-sm font-light leading-relaxed text-noir-secondary sm:text-lg"
               inherit={false}
               {...fadeUp(tTeaser)}
             >

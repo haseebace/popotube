@@ -45,7 +45,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
 
   return (
     <motion.section
-      className="px-12"
+      className="px-5 md:px-12"
       inherit={false}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
@@ -74,7 +74,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
           Indie Cinema
         </motion.h2>
       </div>
-      <div className="grid h-[600px] grid-cols-1 gap-6 md:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 md:h-[600px] md:gap-6 md:grid-cols-12">
         <motion.div
           className="col-span-1 md:col-span-7"
           inherit={false}
@@ -85,7 +85,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
         >
           <Link
             href={`/watch/${large.id}`}
-            className="group relative block h-full w-full overflow-hidden rounded-noir bg-surface-container-low"
+            className="group relative block h-[280px] w-full overflow-hidden rounded-noir bg-surface-container-low md:h-full"
           >
             {largeSrc ? (
               <Image
@@ -100,7 +100,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
               <span className="label-md mb-2 text-xs font-bold uppercase tracking-[0.1em] text-noir-primary">
                 Director&apos;s Cut
               </span>
-              <h3 className="text-4xl font-bold uppercase tracking-tighter text-noir-primary">
+              <h3 className="text-2xl font-bold uppercase tracking-tighter text-noir-primary md:text-4xl">
                 {large.title}
               </h3>
               {large.overview ? (
@@ -111,7 +111,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
             </div>
           </Link>
         </motion.div>
-        <div className="col-span-1 grid grid-rows-2 gap-6 md:col-span-5">
+        <div className="col-span-1 grid grid-rows-2 gap-4 md:col-span-5 md:gap-6">
           <motion.div
             className="relative min-h-0"
             inherit={false}
@@ -122,7 +122,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
           >
             <Link
               href={`/watch/${smallTop.id}`}
-              className="group relative block h-full w-full overflow-hidden rounded-noir bg-surface-container-low"
+              className="group relative block h-[200px] w-full overflow-hidden rounded-noir bg-surface-container-low md:h-full"
             >
               {topSrc ? (
                 <Image
@@ -158,7 +158,7 @@ export default function HomeIndieGrid({ large, smallTop, smallBottom }: Props) {
           >
             <Link
               href={`/watch/${smallBottom.id}`}
-              className="group relative block h-full w-full overflow-hidden rounded-noir bg-surface-container-low"
+              className="group relative block h-[200px] w-full overflow-hidden rounded-noir bg-surface-container-low md:h-full"
             >
               {botSrc ? (
                 <Image

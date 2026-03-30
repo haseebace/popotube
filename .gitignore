@@ -52,3 +52,4 @@ docker/jackett/config/
 .cursor/
 Documentaions/commet-docs/
 Documentaions/popotube_pro_plan.md
+dump.rdb
