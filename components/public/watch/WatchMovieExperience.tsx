@@ -133,7 +133,11 @@ export default function WatchMovieExperience({
                   {teaser}
                 </motion.p>
               ) : null}
-              <motion.div inherit={false} className={noirCtaRow} {...fadeUp(tCta)}>
+              <motion.div
+                inherit={false}
+                className={noirCtaRow}
+                {...fadeUp(tCta)}
+              >
                 <motion.button
                   type="button"
                   className={noirCtaPrimaryMotion}

@@ -55,10 +55,7 @@ export default function HomeNewArrivalsStrip({ movies }: Props) {
           </button>
         </div>
       </div>
-      <div
-        ref={ref}
-        className="no-scrollbar flex gap-6 overflow-x-auto pr-12"
-      >
+      <div ref={ref} className="no-scrollbar flex gap-6 overflow-x-auto pr-12">
         {movies.map((m, i) => {
           const still = m.backdrop_path
             ? `https://image.tmdb.org/t/p/w780${m.backdrop_path}`
