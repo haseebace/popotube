@@ -4,7 +4,7 @@ export default function HomeSiteFooter() {
   const year = new Date().getFullYear();
   return (
     <footer className="w-full border-t border-neutral-800/20 bg-neutral-950">
-      <div className="flex w-full flex-col items-center justify-between gap-8 px-12 py-16 md:flex-row">
+      <div className="flex w-full flex-col items-center justify-between gap-8 px-5 py-12 md:px-12 md:py-16 md:flex-row">
         <div className="flex flex-col items-center gap-4 md:items-start">
           <span className="text-lg font-bold uppercase tracking-tighter text-noir-primary">
             PoPoTube

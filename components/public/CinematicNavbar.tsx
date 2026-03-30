@@ -121,7 +121,7 @@ export default function CinematicNavbar() {
       initial={navEntry.initial}
       animate={navEntry.animate}
     >
-      <div className="mx-auto flex w-full max-w-none items-center justify-between px-8 py-5">
+      <div className="mx-auto flex w-full max-w-none items-center justify-between px-4 py-3 md:px-8 md:py-5">
         <div className="flex items-center gap-12">
           <Link
             href="/"

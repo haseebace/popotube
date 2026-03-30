@@ -73,7 +73,7 @@ export default async function PublicHomepage() {
           genreLine={genreSlashLine(featured.genre_ids)}
         />
 
-        <div className="space-y-20 bg-surface py-20">
+        <div className="space-y-12 bg-surface py-12 md:space-y-20 md:py-20">
           <HomeTrendingStrip
             sectionIndex="01"
             title="Trending Now"

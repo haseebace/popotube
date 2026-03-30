@@ -30,14 +30,14 @@ export default function HomeTrendingStrip({
 }: Props) {
   return (
     <motion.section
-      className="pl-12"
+      className="pl-5 md:pl-12"
       inherit={false}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-48px", amount: 0.12 }}
       transition={{ duration: 0.5, ease: easeNoir }}
     >
-      <div className="mb-8 flex items-end justify-between pr-12">
+      <div className="mb-8 flex items-end justify-between pr-5 md:pr-12">
         <div>
           <motion.span
             className="label-md mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500"
@@ -76,7 +76,7 @@ export default function HomeTrendingStrip({
           </Link>
         </motion.div>
       </div>
-      <div className="no-scrollbar flex gap-6 overflow-x-auto pr-12">
+      <div className="no-scrollbar flex gap-4 overflow-x-auto pr-5 md:gap-6 md:pr-12">
         {movies.map((m, index) => {
           const poster = m.poster_path
             ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
@@ -96,7 +96,7 @@ export default function HomeTrendingStrip({
             >
               <Link
                 href={`/watch/${m.id}`}
-                className="group w-[320px] shrink-0 cursor-pointer block"
+                className="group w-[200px] shrink-0 cursor-pointer block sm:w-[260px] md:w-[320px]"
               >
                 <div className="relative mb-4 aspect-[2/3] overflow-hidden rounded-noir bg-surface-container">
                   {poster ? (
@@ -105,7 +105,7 @@ export default function HomeTrendingStrip({
                       alt={m.title}
                       fill
                       className="object-cover transition-transform duration-700 group-hover:scale-110"
-                      sizes="320px"
+                      sizes="(max-width: 640px) 200px, (max-width: 768px) 260px, 320px"
                     />
                   ) : null}
                   <div className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/0" />

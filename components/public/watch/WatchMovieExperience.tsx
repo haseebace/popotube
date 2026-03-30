@@ -90,7 +90,7 @@ export default function WatchMovieExperience({
       transition={{ duration: 0.45, ease: easeNoir }}
     >
       <main className="min-h-screen">
-        <section className="relative h-[921px] w-full overflow-hidden">
+        <section className="relative h-[85svh] w-full overflow-hidden md:h-[921px]">
           <div className="absolute inset-0 bg-surface-container-lowest" />
 
           {backdropUrl ? (
@@ -121,7 +121,7 @@ export default function WatchMovieExperience({
             transition={heroGradientTransition}
           />
 
-          <div className="absolute inset-0 flex flex-col justify-end px-8 pb-20 md:px-20">
+          <div className="absolute inset-0 flex flex-col justify-end px-5 pb-14 md:px-20 md:pb-20">
             <div className="max-w-4xl space-y-6">
               <motion.span
                 inherit={false}
@@ -216,7 +216,7 @@ export default function WatchMovieExperience({
         </section>
 
         <motion.section
-          className="grid gap-12 bg-surface px-8 py-16 md:grid-cols-12 md:px-20"
+          className="grid gap-8 bg-surface px-5 py-10 md:gap-12 md:px-20 md:py-16 md:grid-cols-12"
           inherit={false}
           {...inViewBlock}
         >
@@ -330,7 +330,7 @@ export default function WatchMovieExperience({
         {similar.length > 0 ? (
           <section className="bg-surface-container-lowest py-24">
             <motion.div
-              className="mb-12 flex items-end justify-between px-8 md:px-20"
+              className="mb-8 flex items-end justify-between px-5 md:mb-12 md:px-20"
               inherit={false}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -346,7 +346,7 @@ export default function WatchMovieExperience({
                 </p>
               </div>
             </motion.div>
-            <div className="no-scrollbar flex gap-6 overflow-x-auto px-8 pb-8 md:px-20">
+            <div className="no-scrollbar flex gap-4 overflow-x-auto px-5 pb-8 md:gap-6 md:px-20">
               {similar.map((m, index) => {
                 const poster = m.poster_path
                   ? `https://image.tmdb.org/t/p/w342${m.poster_path}`
@@ -409,7 +409,7 @@ export default function WatchMovieExperience({
       </main>
 
       <footer className="w-full bg-surface font-body text-xs uppercase tracking-[0.1em]">
-        <div className="flex w-full flex-col items-center justify-between gap-8 px-12 py-16 md:flex-row">
+        <div className="flex w-full flex-col items-center justify-between gap-8 px-5 py-12 md:px-12 md:py-16 md:flex-row">
           <div className="text-on-surface-variant">
             © {new Date().getFullYear()} PoPoTube. All rights reserved.
           </div>
