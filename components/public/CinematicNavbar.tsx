@@ -26,6 +26,7 @@ interface SearchResult {
   title: string;
   poster_path: string | null;
   release_date: string;
+  media_type: "movie" | "tv";
 }
 
 const SEARCH_COLLAPSED_W = 44;
@@ -103,8 +104,29 @@ export default function CinematicNavbar() {
         const res = await fetch(
           `/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`,
         );
-        const data = await res.json();
-        setResults(data.results?.slice(0, 5) || []);
+        const data = (await res.json()) as {
+          results?: Array<{
+            id: number;
+            media_type?: string;
+            title?: string;
+            name?: string;
+            poster_path?: string | null;
+            release_date?: string;
+            first_air_date?: string;
+          }>;
+        };
+        const raw = data.results?.slice(0, 5) ?? [];
+        setResults(
+          raw
+            .filter((r) => r.media_type === "movie" || r.media_type === "tv")
+            .map((r) => ({
+              id: r.id,
+              title: (r.title ?? r.name ?? "Untitled").trim(),
+              poster_path: r.poster_path ?? null,
+              release_date: r.release_date ?? r.first_air_date ?? "",
+              media_type: r.media_type as "movie" | "tv",
+            })),
+        );
       } catch (error) {
         console.error("Search error:", error);
       } finally {
@@ -258,8 +280,12 @@ export default function CinematicNavbar() {
                   <div className="flex flex-col gap-1">
                     {results.map((movie) => (
                       <Link
-                        key={movie.id}
-                        href={`/watch/${movie.id}`}
+                        key={`${movie.media_type}-${movie.id}`}
+                        href={
+                          movie.media_type === "tv"
+                            ? `/watch/tv/${movie.id}`
+                            : `/watch/${movie.id}`
+                        }
                         onClick={() => setShowDropdown(false)}
                         className="flex items-center gap-3 rounded-noir p-2 hover:bg-white/10 transition-colors"
                       >

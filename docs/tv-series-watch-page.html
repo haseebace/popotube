@@ -1,0 +1,446 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#000000",
+              "tertiary-fixed-dim": "#474747",
+              "surface-variant": "#353535",
+              "on-secondary-fixed": "#1c1b1b",
+              "on-tertiary": "#1b1b1b",
+              "on-secondary-fixed-variant": "#3c3b3b",
+              "surface-container-high": "#2a2a2a",
+              "secondary-fixed": "#c8c6c5",
+              "inverse-primary": "#5d5f5f",
+              secondary: "#c8c6c5",
+              "on-primary-fixed": "#ffffff",
+              "secondary-fixed-dim": "#adabaa",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-container": "#1f1f1f",
+              "surface-container-low": "#1b1b1b",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "on-surface": "#e2e2e2",
+              "surface-container-highest": "#353535",
+              "on-secondary": "#1c1b1b",
+              "on-tertiary-fixed-variant": "#e2e2e2",
+              "tertiary-container": "#919191",
+              "surface-tint": "#c6c6c7",
+              outline: "#919191",
+              "on-tertiary-fixed": "#ffffff",
+              "on-error": "#690005",
+              "inverse-surface": "#e2e2e2",
+              "surface-dim": "#131313",
+              "secondary-container": "#474746",
+              "on-primary": "#1a1c1c",
+              "on-background": "#e2e2e2",
+              "primary-fixed-dim": "#454747",
+              "on-secondary-container": "#e5e2e1",
+              "surface-bright": "#393939",
+              "primary-fixed": "#5d5f5f",
+              "outline-variant": "#474747",
+              "primary-container": "#d4d4d4",
+              background: "#131313",
+              "tertiary-fixed": "#5e5e5e",
+              "inverse-on-surface": "#303030",
+              "on-primary-container": "#000000",
+              error: "#ffb4ab",
+              "on-surface-variant": "#c6c6c6",
+              tertiary: "#e2e2e2",
+              surface: "#131313",
+              "on-error-container": "#ffdad6",
+              primary: "#ffffff",
+              "error-container": "#93000a",
+            },
+            fontFamily: {
+              headline: ["Manrope"],
+              body: ["Manrope"],
+              label: ["Manrope"],
+            },
+            borderRadius: {
+              DEFAULT: "0.125rem",
+              lg: "0.25rem",
+              xl: "0.5rem",
+              full: "0.75rem",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+      .noir-gradient-overlay {
+        background: linear-gradient(
+          to top,
+          #131313 0%,
+          rgba(19, 19, 19, 0.4) 50%,
+          rgba(19, 19, 19, 0) 100%
+        );
+      }
+    </style>
+  </head>
+  <body class="bg-background text-on-background font-body antialiased">
+    <!-- TopNavBar -->
+    <nav
+      class="fixed top-0 w-full z-50 bg-neutral-900/60 backdrop-blur-xl shadow-[0_4px_40px_rgba(226,226,226,0.04)] font-manrope antialiased tracking-tight"
+    >
+      <div
+        class="flex justify-between items-center px-8 py-4 w-full max-w-none mx-auto"
+      >
+        <div class="text-xl font-bold tracking-tighter text-white uppercase">
+          Noir Cinema
+        </div>
+        <div class="hidden md:flex items-center gap-8">
+          <a class="text-white border-b-2 border-white pb-1" href="#">Browse</a>
+          <a
+            class="text-neutral-400 hover:text-white transition-colors"
+            href="#"
+            >My Library</a
+          >
+        </div>
+        <div class="flex items-center gap-6">
+          <div class="hidden md:block">
+            <span
+              class="material-symbols-outlined text-white opacity-70 hover:opacity-100 cursor-pointer transition-opacity"
+              >search</span
+            >
+          </div>
+          <div class="active:scale-95 duration-200">
+            <span
+              class="material-symbols-outlined text-white"
+              data-icon="person"
+              >person</span
+            >
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main class="min-h-screen">
+      <!-- Hero Section -->
+      <section class="relative h-[870px] w-full flex items-end overflow-hidden">
+        <img
+          alt="Grayscale cinematic shot"
+          class="absolute inset-0 w-full h-full object-cover grayscale brightness-75"
+          data-alt="dramatic wide-angle grayscale shot of a lonely figure walking through a foggy gothic alleyway with high contrast lighting and sharp shadows"
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAtnajVN7G98Vfo9Oa1wwIuoeExJzueyZqMcyJpbFmaS1hCiQqbbRHSZaZlhruNSOwtC0AvBpDl2P3vJn35U9YhWH0ktOPo_4mx82xZjW3HvFpbMXGrsaH-YrA9PYqMes5x1SuRrBf2nDR3WZVMe3Vu9u2CvJcAIsthv8FPI5BSE2ijKw_dAPHHpEb9L3rq2F5WZ_pKVZI-c2ush6lvyREO71gphqHpf7RMfq6plw59xPGs_GHqqX6UU90a_j1mvVZU_Fj6GASK_U"
+        />
+        <div class="absolute inset-0 noir-gradient-overlay"></div>
+        <div class="relative z-10 w-full px-8 md:px-12 pb-20 max-w-7xl mx-auto">
+          <div class="space-y-6 max-w-3xl">
+            <div class="flex items-center gap-4">
+              <span
+                class="label-md tracking-[0.2em] uppercase text-secondary-fixed border border-outline-variant/30 px-3 py-1 text-[10px]"
+                >Series</span
+              >
+              <span
+                class="label-md tracking-[0.2em] uppercase text-on-surface-variant text-[10px]"
+                >2024</span
+              >
+              <span
+                class="label-md tracking-[0.2em] uppercase text-on-surface-variant text-[10px]"
+                >Drama • Thriller</span
+              >
+            </div>
+            <h1
+              class="text-5xl md:text-8xl font-extrabold tracking-tighter text-white uppercase leading-none"
+            >
+              ECHOES OF <br />ETERNITY
+            </h1>
+            <p
+              class="text-on-surface-variant text-lg md:text-xl max-w-2xl font-light leading-relaxed"
+            >
+              A haunting exploration of memory and shadows in a city that never
+              wakes. When the past begins to bleed into the present, every
+              reflection tells a different lie.
+            </p>
+            <div class="flex flex-wrap gap-4 pt-4">
+              <button
+                class="bg-primary text-on-primary px-10 py-4 flex items-center gap-3 font-bold tracking-widest uppercase text-sm hover:bg-secondary transition-colors duration-300 active:scale-95"
+              >
+                <span
+                  class="material-symbols-outlined fill"
+                  style="font-variation-settings: &quot;FILL&quot; 1"
+                  >play_arrow</span
+                >
+                PLAY S1:E1
+              </button>
+              <button
+                class="border border-outline-variant/40 bg-white/5 backdrop-blur-md text-white px-10 py-4 flex items-center gap-3 font-bold tracking-widest uppercase text-sm hover:bg-white/10 transition-colors duration-300 active:scale-95"
+              >
+                <span class="material-symbols-outlined">add</span>
+                My Library
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Season Selector & Episode List -->
+      <section class="bg-surface py-20 px-8 md:px-12">
+        <div class="max-w-7xl mx-auto">
+          <!-- Season Tabs -->
+          <div
+            class="flex gap-12 border-b border-outline-variant/10 mb-12 overflow-x-auto no-scrollbar"
+          >
+            <button
+              class="pb-4 text-white font-bold border-b-2 border-white tracking-widest uppercase text-xs whitespace-nowrap"
+            >
+              Season 1
+            </button>
+            <button
+              class="pb-4 text-neutral-500 hover:text-white transition-colors tracking-widest uppercase text-xs whitespace-nowrap"
+            >
+              Season 2
+            </button>
+            <button
+              class="pb-4 text-neutral-500 hover:text-white transition-colors tracking-widest uppercase text-xs whitespace-nowrap"
+            >
+              Season 3
+            </button>
+          </div>
+          <!-- Episode Grid -->
+          <div class="space-y-4">
+            <!-- Episode 1 -->
+            <div
+              class="group flex flex-col md:flex-row gap-6 p-4 hover:bg-surface-container-low transition-colors duration-300 rounded cursor-pointer"
+            >
+              <div
+                class="relative w-full md:w-64 aspect-[16/9] shrink-0 overflow-hidden rounded"
+              >
+                <img
+                  alt="Episode thumbnail"
+                  class="w-full h-full object-cover grayscale group-hover:scale-105 transition-transform duration-500"
+                  data-alt="atmospheric grayscale close-up of a vintage telephone on a wooden desk with moody low-key lighting"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5N8KfQbGt_IdtvKW8cPAv_WYs4HMYbsQ0-FNEQH7Cwj7qGI6eFF77GMorO_qFsSBQdCJT0Y7vqwFglh-wfCi1AOV2H7y8SrHv6lRJF4YQIsmRHu0j4J-RJgk9lY99g7V0TjYZR40HdAcRE7gzH7EmHwKoXK4LaNu6JQWJvYFKR4iJMQnvRZi9iXI9rYZ-4drWF5TaCRgNtpSFIhKeAs-bpnyKZGL1Vp4Lc0nGDtOvu6KVI2JF-ERGph-gkudQol72V44C38wLyJA"
+                />
+                <div
+                  class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40"
+                >
+                  <span class="material-symbols-outlined text-white text-4xl"
+                    >play_circle</span
+                  >
+                </div>
+              </div>
+              <div class="flex-1 space-y-2 py-2">
+                <div class="flex justify-between items-start">
+                  <h3 class="text-white text-xl font-bold tracking-tight">
+                    The Silent Echo
+                  </h3>
+                  <span
+                    class="label-md text-on-surface-variant font-mono text-[10px]"
+                    >52 MIN</span
+                  >
+                </div>
+                <p
+                  class="text-on-surface-variant font-light text-sm leading-relaxed max-w-3xl"
+                >
+                  Detective Elias Thorne discovers a series of recordings that
+                  seem to predict events before they happen.
+                </p>
+                <div class="pt-2">
+                  <span
+                    class="text-[10px] tracking-widest uppercase text-outline-variant/60 font-bold"
+                    >Episode 1</span
+                  >
+                </div>
+              </div>
+            </div>
+            <!-- Episode 2 -->
+            <div
+              class="group flex flex-col md:flex-row gap-6 p-4 hover:bg-surface-container-low transition-colors duration-300 rounded cursor-pointer"
+            >
+              <div
+                class="relative w-full md:w-64 aspect-[16/9] shrink-0 overflow-hidden rounded"
+              >
+                <img
+                  alt="Episode thumbnail"
+                  class="w-full h-full object-cover grayscale group-hover:scale-105 transition-transform duration-500"
+                  data-alt="dark noir street scene in black and white featuring a vintage car under a flickering street lamp and heavy rain"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAicPFstiIUFurCPJHENlm_nvaFFhLWOpjbkqxMjFpUniFlne7bZoiY03aNySE2OO-BR3PB1WgtBCiWmP5jFBJpXz40Gf-PS5Yq6qP_gPh3iwJlvzcRU6h1LsBVYsxqqHWscegu_nTAsYJ1thLTDb5lGU6fQgOpuSsqqirlY53cXZw2ZeOtXgBBWq4wigGF9MS58L9bapsHCWwtSpJgJQ4xX8FfHoEwR4juSKCdkpZ4fbfYcoZxs54VJke-rqJG6R6-XvX2mTTIZI4"
+                />
+                <div
+                  class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40"
+                >
+                  <span class="material-symbols-outlined text-white text-4xl"
+                    >play_circle</span
+                  >
+                </div>
+              </div>
+              <div class="flex-1 space-y-2 py-2">
+                <div class="flex justify-between items-start">
+                  <h3 class="text-white text-xl font-bold tracking-tight">
+                    Broken Reflection
+                  </h3>
+                  <span
+                    class="label-md text-on-surface-variant font-mono text-[10px]"
+                    >48 MIN</span
+                  >
+                </div>
+                <p
+                  class="text-on-surface-variant font-light text-sm leading-relaxed max-w-3xl"
+                >
+                  A key witness disappears, leaving behind only a shattered
+                  mirror and a cryptic message in the glass.
+                </p>
+                <div class="pt-2">
+                  <span
+                    class="text-[10px] tracking-widest uppercase text-outline-variant/60 font-bold"
+                    >Episode 2</span
+                  >
+                </div>
+              </div>
+            </div>
+            <!-- Episode 3 -->
+            <div
+              class="group flex flex-col md:flex-row gap-6 p-4 hover:bg-surface-container-low transition-colors duration-300 rounded cursor-pointer"
+            >
+              <div
+                class="relative w-full md:w-64 aspect-[16/9] shrink-0 overflow-hidden rounded"
+              >
+                <img
+                  alt="Episode thumbnail"
+                  class="w-full h-full object-cover grayscale group-hover:scale-105 transition-transform duration-500"
+                  data-alt="wide shot of a stark modernist building facade in black and white with strong geometric shadows"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDC3GzAof-2GT-2LYwCKUZrP8c_IwmxyUNl437hHZGi8BKWDQpMmnpqs6puLAk4LAcJylKXKgoYKYvQWNkaEuxwfTddY8ZC8i6EhDDLxxb8ymUbN03-GIr7kCVAR161isQc4jDN__m_uwbHYZ8DsxuS5wL6IczAcppdiDQ_IZpJGJKNema1OkgnU1JWkKbM_DiCdWKWCP0IUCih14981Cqqh6ZPt91LPP4BYnr7iLhHiok1YnXBv-tRU0QkeEt0pzsQXTfkO7hSZpw"
+                />
+                <div
+                  class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40"
+                >
+                  <span class="material-symbols-outlined text-white text-4xl"
+                    >play_circle</span
+                  >
+                </div>
+              </div>
+              <div class="flex-1 space-y-2 py-2">
+                <div class="flex justify-between items-start">
+                  <h3 class="text-white text-xl font-bold tracking-tight">
+                    The Midnight Archive
+                  </h3>
+                  <span
+                    class="label-md text-on-surface-variant font-mono text-[10px]"
+                    >55 MIN</span
+                  >
+                </div>
+                <p
+                  class="text-on-surface-variant font-light text-sm leading-relaxed max-w-3xl"
+                >
+                  The investigation leads to a forgotten basement archive where
+                  the city's deepest secrets are kept in cold storage.
+                </p>
+                <div class="pt-2">
+                  <span
+                    class="text-[10px] tracking-widest uppercase text-outline-variant/60 font-bold"
+                    >Episode 3</span
+                  >
+                </div>
+              </div>
+            </div>
+            <!-- Episode 4 -->
+            <div
+              class="group flex flex-col md:flex-row gap-6 p-4 hover:bg-surface-container-low transition-colors duration-300 rounded cursor-pointer"
+            >
+              <div
+                class="relative w-full md:w-64 aspect-[16/9] shrink-0 overflow-hidden rounded"
+              >
+                <img
+                  alt="Episode thumbnail"
+                  class="w-full h-full object-cover grayscale group-hover:scale-105 transition-transform duration-500"
+                  data-alt="moody grayscale close-up of cigarette smoke curling in a beam of light within a dark room"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtqNjTHp6J1up3GuX96_lhU3Mj3DeDvE8_c_RrXBch4yK33b6FK4lZMbZXpp2RVaebnadwP6LQnFSLQV4ID9D8j6eLCAdkDotWifNl5V-DmqZyWJtt9U_yi-EWUoD-XYrWJrs4fEIuMXm_Y0B-XBH9WtKl8kn4XBO6Ws-vFvNBBgbnRmDRGT0g0k9fvt_NlhXKAFrp3_xLfjdiELTjY524_HZhw57bQqOcq_7Bks_q3z0zwTACt2IE1yx90NU0_2jo4aZ1Hz2OFIc"
+                />
+                <div
+                  class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40"
+                >
+                  <span class="material-symbols-outlined text-white text-4xl"
+                    >play_circle</span
+                  >
+                </div>
+              </div>
+              <div class="flex-1 space-y-2 py-2">
+                <div class="flex justify-between items-start">
+                  <h3 class="text-white text-xl font-bold tracking-tight">
+                    Shadows of Doubt
+                  </h3>
+                  <span
+                    class="label-md text-on-surface-variant font-mono text-[10px]"
+                    >50 MIN</span
+                  >
+                </div>
+                <p
+                  class="text-on-surface-variant font-light text-sm leading-relaxed max-w-3xl"
+                >
+                  Thorne must decide who to trust when his own partner's past
+                  becomes part of the mystery.
+                </p>
+                <div class="pt-2">
+                  <span
+                    class="text-[10px] tracking-widest uppercase text-outline-variant/60 font-bold"
+                    >Episode 4</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <!-- Footer -->
+    <footer
+      class="bg-neutral-950 w-full border-t border-neutral-800/20 font-manrope text-xs tracking-[0.1em] uppercase"
+    >
+      <div
+        class="flex flex-col md:flex-row justify-between items-center px-12 py-16 w-full gap-8"
+      >
+        <div class="text-neutral-500">
+          © 2024 Noir Cinema. All rights reserved.
+        </div>
+        <div class="flex flex-wrap justify-center gap-8">
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Terms</a
+          >
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Privacy</a
+          >
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Instagram</a
+          >
+          <a
+            class="text-neutral-500 hover:text-white transition-colors duration-300"
+            href="#"
+            >Letterboxd</a
+          >
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

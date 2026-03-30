@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
-import MovieCard from './MovieCard';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState, useRef } from "react";
+import MovieCard from "./MovieCard";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type CategoryMovie = {
   id: number;
@@ -21,7 +21,11 @@ interface MovieCategoryRowProps {
   badge?: { label: string; color: string }; // Optional platform badge
 }
 
-export default function MovieCategoryRow({ title, endpoint, badge }: MovieCategoryRowProps) {
+export default function MovieCategoryRow({
+  title,
+  endpoint,
+  badge,
+}: MovieCategoryRowProps) {
   const [movies, setMovies] = useState<CategoryMovie[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -30,7 +34,7 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
     async function fetchData() {
       try {
         const res = await fetch(endpoint);
-        if (!res.ok) throw new Error('Failed to fetch');
+        if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         if (data.results) {
           setMovies(data.results.slice(0, 10)); // Just 10 logic for now
@@ -46,13 +50,13 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
 
   const scrollLeft = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -300, behavior: 'smooth' });
+      scrollContainerRef.current.scrollBy({ left: -300, behavior: "smooth" });
     }
   };
 
   const scrollRight = () => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+      scrollContainerRef.current.scrollBy({ left: 300, behavior: "smooth" });
     }
   };
 
@@ -63,16 +67,24 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">{title}</h2>
             {badge && (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: badge.color, color: '#fff' }}>
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: badge.color, color: "#fff" }}
+              >
                 {badge.label}
               </span>
             )}
           </div>
         </div>
         <div className="container mx-auto px-6 flex space-x-4 overflow-hidden">
-          {Array(5).fill(0).map((_, i) => (
-            <div key={i} className="w-[120px] md:w-48 h-[180px] md:h-[288px] bg-muted animate-pulse rounded-xl flex-shrink-0" />
-          ))}
+          {Array(5)
+            .fill(0)
+            .map((_, i) => (
+              <div
+                key={i}
+                className="w-[120px] md:w-48 h-[180px] md:h-[288px] bg-muted animate-pulse rounded-xl flex-shrink-0"
+              />
+            ))}
         </div>
       </div>
     );
@@ -84,7 +96,10 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold">{title}</h2>
           {badge && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: badge.color, color: '#fff' }}>
+            <span
+              className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: badge.color, color: "#fff" }}
+            >
               {badge.label}
             </span>
           )}
@@ -102,21 +117,24 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
           <ChevronLeft className="h-6 w-6" />
         </Button>
 
-        <div 
+        <div
           className="container mx-auto px-6 flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar style-scrollbar"
           ref={scrollContainerRef}
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {movies.map((movie) => (
-             <div key={movie.id} className="w-[120px] md:w-48 flex-shrink-0 snap-start">
-               <MovieCard
-                 id={movie.id}
-                 title={movie.title || movie.name}
-                 posterPath={movie.poster_path}
-                 releaseDate={movie.release_date || movie.first_air_date}
-                 voteAverage={movie.vote_average}
-               />
-             </div>
+            <div
+              key={movie.id}
+              className="w-[120px] md:w-48 flex-shrink-0 snap-start"
+            >
+              <MovieCard
+                id={movie.id}
+                title={(movie.title ?? movie.name ?? "").trim() || "Untitled"}
+                posterPath={movie.poster_path ?? null}
+                releaseDate={movie.release_date ?? movie.first_air_date}
+                voteAverage={movie.vote_average}
+              />
+            </div>
           ))}
         </div>
 
@@ -131,11 +149,15 @@ export default function MovieCategoryRow({ title, endpoint, badge }: MovieCatego
       </div>
 
       {/* Hide scrollbar injected style */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
-      `}} />
+      `,
+        }}
+      />
     </div>
   );
 }

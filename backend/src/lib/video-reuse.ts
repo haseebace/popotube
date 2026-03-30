@@ -1,10 +1,8 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
-/**
- * TV (future): reuse is movie-only today (`tmdb_id` on `videos`). Episode-aware
- * matching will need TMDB TV + season_number + episode_number (or episode IDs)
- * and Torrentio series URLs — see project plan milestone.
- */
+export type FindVideoForTmdbOpts =
+  | { mode: "movie" }
+  | { mode: "tv_episode"; seasonNumber: number; episodeNumber: number };
 
 const STATUS_PRIORITY: Record<string, number> = {
   completed: 1000,
@@ -19,34 +17,58 @@ const STATUS_PRIORITY: Record<string, number> = {
 function getVideoPriority(video: Record<string, any>): number {
   let priority = STATUS_PRIORITY[video.status] ?? 0;
 
-  if (video.status === 'completed') {
+  if (video.status === "completed") {
     if (video.playback_source) priority += 120;
     if (video.stream_url) priority += 80;
   }
 
-  if (typeof video.progress === 'number') {
+  if (typeof video.progress === "number") {
     priority += Math.min(video.progress, 100) / 100;
   }
 
   return priority;
 }
 
-function sortVideosByReusePriority(videos: Record<string, any>[]): Record<string, any>[] {
+function sortVideosByReusePriority(
+  videos: Record<string, any>[],
+): Record<string, any>[] {
   return [...videos].sort((a, b) => getVideoPriority(b) - getVideoPriority(a));
 }
 
 export function isReusableVideoStatus(status?: string): boolean {
-  return Boolean(status && ['completed', 'exposing_http', 'downloading_torrent', 'pending', 'submitted', 'retrying'].includes(status));
+  return Boolean(
+    status &&
+    [
+      "completed",
+      "exposing_http",
+      "downloading_torrent",
+      "pending",
+      "submitted",
+      "retrying",
+    ].includes(status),
+  );
 }
 
 export async function findBestVideoForTmdb(
   tmdbId: number,
-  columns: string = '*'
+  columns: string = "*",
+  opts: FindVideoForTmdbOpts = { mode: "movie" },
 ): Promise<Record<string, any> | null> {
-  const { data, error } = await supabase
-    .from('videos')
-    .select(columns)
-    .eq('tmdb_id', tmdbId);
+  let q = supabase.from("videos").select(columns).eq("tmdb_id", tmdbId);
+
+  if (opts.mode === "tv_episode") {
+    q = q
+      .eq("tmdb_media_type", "tv")
+      .eq("season_number", opts.seasonNumber)
+      .eq("episode_number", opts.episodeNumber);
+  } else {
+    q = q
+      .eq("tmdb_media_type", "movie")
+      .is("season_number", null)
+      .is("episode_number", null);
+  }
+
+  const { data, error } = await q;
 
   if (error) {
     throw error;

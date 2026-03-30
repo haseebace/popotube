@@ -19,6 +19,10 @@ export async function GET(request: Request) {
     if (watchFlowId) {
       qs.set("watch_flow_id", watchFlowId);
     }
+    const season = searchParams.get("season");
+    const episode = searchParams.get("episode");
+    if (season != null && season !== "") qs.set("season", season);
+    if (episode != null && episode !== "") qs.set("episode", episode);
 
     const backendRes = await fetch(
       `${BACKEND_URL}/api/movie-status?${qs.toString()}`,

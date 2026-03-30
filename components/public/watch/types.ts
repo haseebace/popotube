@@ -11,6 +11,13 @@ export type WatchSimilarMovie = {
   release_date?: string;
 };
 
+export type WatchSimilarTv = {
+  id: number;
+  name: string;
+  poster_path?: string | null;
+  first_air_date?: string;
+};
+
 /** JSON-safe payload from server page → WatchMovieExperience */
 export type WatchMoviePayload = {
   id: number;

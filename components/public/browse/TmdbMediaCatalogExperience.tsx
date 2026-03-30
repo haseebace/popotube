@@ -159,7 +159,11 @@ export default function TmdbMediaCatalogExperience({
                     }}
                   >
                     <Link
-                      href={`/watch/${item.id}`}
+                      href={
+                        mediaType === "tv"
+                          ? `/watch/tv/${item.id}`
+                          : `/watch/${item.id}`
+                      }
                       className="group block cursor-pointer"
                     >
                       <motion.div

@@ -10,6 +10,7 @@ import {
 import {
   findBestVideoForTmdb,
   isReusableVideoStatus,
+  type FindVideoForTmdbOpts,
 } from "../lib/video-reuse";
 import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
 
@@ -24,6 +25,10 @@ interface TriggerIngestionBody {
   year?: string;
   /** From watch UI — same id as movie-status polls for log correlation */
   watch_flow_id?: string;
+  /** TV episode: uses Torrentio series stream + season/episode on `videos` */
+  media_type?: "movie" | "tv";
+  season_number?: number;
+  episode_number?: number;
 }
 
 interface TorrentioCandidate {
@@ -211,10 +216,35 @@ async function resolveImdbIdFromTmdb(tmdbId: number): Promise<string | null> {
   return response.data?.imdb_id || null;
 }
 
+async function resolveImdbIdFromTmdbTv(tmdbId: number): Promise<string | null> {
+  if (!TMDB_API_KEY) {
+    throw new Error("TMDB_API_KEY is not configured on the backend.");
+  }
+
+  const response = await axios.get(
+    `${TMDB_BASE_URL}/tv/${tmdbId}/external_ids`,
+    {
+      params: {
+        api_key: TMDB_API_KEY,
+      },
+      timeout: 10000,
+    },
+  );
+
+  return response.data?.imdb_id || null;
+}
+
 async function fetchTorrentioCandidates(
   imdbId: string,
+  kind: "movie" | "series",
+  season?: number,
+  episode?: number,
 ): Promise<TorrentioCandidate[]> {
-  const torrentioUrl = `${TORRENTIO_BASE_URL}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/movie/${imdbId}.json`;
+  const path =
+    kind === "movie"
+      ? `movie/${imdbId}.json`
+      : `series/${imdbId}:${season}:${episode}.json`;
+  const torrentioUrl = `${TORRENTIO_BASE_URL}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/${path}`;
   const response = await axios.get<{ streams?: TorrentioStream[] }>(
     torrentioUrl,
     { timeout: 15000 },
@@ -293,13 +323,44 @@ export default async function (fastify: FastifyInstance) {
             .send({ error: "tmdb_id and title are required" });
         }
 
+        const isTvEpisode =
+          body.media_type === "tv" &&
+          typeof body.season_number === "number" &&
+          typeof body.episode_number === "number" &&
+          body.season_number >= 0 &&
+          body.episode_number >= 1;
+
+        if (body.media_type === "tv" && !isTvEpisode) {
+          return reply.status(400).send({
+            error: "TV ingestion requires season_number and episode_number",
+          });
+        }
+
+        const findOpts: FindVideoForTmdbOpts = isTvEpisode
+          ? {
+              mode: "tv_episode",
+              seasonNumber: body.season_number!,
+              episodeNumber: body.episode_number!,
+            }
+          : { mode: "movie" };
+
         const watchFlowId = sanitizeWatchFlowId(watch_flow_id);
         const log = fastify.log.child({
           tmdb_id,
           ...(watchFlowId ? { watch_flow_id: watchFlowId } : {}),
+          ...(isTvEpisode
+            ? {
+                season_number: body.season_number,
+                episode_number: body.episode_number,
+              }
+            : {}),
         });
 
-        const existingVideo = await findBestVideoForTmdb(tmdb_id);
+        const existingVideo = await findBestVideoForTmdb(
+          tmdb_id,
+          "*",
+          findOpts,
+        );
         if (existingVideo && isReusableVideoStatus(existingVideo.status)) {
           log.info(
             {
@@ -319,7 +380,9 @@ export default async function (fastify: FastifyInstance) {
         }
 
         const imdbLookupStartedAt = Date.now();
-        const imdbId = await resolveImdbIdFromTmdb(tmdb_id);
+        const imdbId = isTvEpisode
+          ? await resolveImdbIdFromTmdbTv(tmdb_id)
+          : await resolveImdbIdFromTmdb(tmdb_id);
         log.info(
           {
             title,
@@ -330,13 +393,19 @@ export default async function (fastify: FastifyInstance) {
         );
 
         if (!imdbId) {
-          return reply
-            .status(404)
-            .send({ error: "Unable to resolve IMDB ID for this movie." });
+          return reply.status(404).send({
+            error: isTvEpisode
+              ? "Unable to resolve IMDB ID for this series."
+              : "Unable to resolve IMDB ID for this movie.",
+          });
         }
 
         // Concurrent triggers can both pass the first DB check; re-check before Torrentio.
-        const videoBeforeTorrentio = await findBestVideoForTmdb(tmdb_id);
+        const videoBeforeTorrentio = await findBestVideoForTmdb(
+          tmdb_id,
+          "*",
+          findOpts,
+        );
         if (
           videoBeforeTorrentio &&
           isReusableVideoStatus(videoBeforeTorrentio.status)
@@ -354,7 +423,14 @@ export default async function (fastify: FastifyInstance) {
         }
 
         const torrentioStartedAt = Date.now();
-        const candidates = await fetchTorrentioCandidates(imdbId);
+        const candidates = isTvEpisode
+          ? await fetchTorrentioCandidates(
+              imdbId,
+              "series",
+              body.season_number,
+              body.episode_number,
+            )
+          : await fetchTorrentioCandidates(imdbId, "movie");
         const validResults = candidates.filter(
           (candidate) =>
             candidate.magnetUri &&
@@ -366,8 +442,9 @@ export default async function (fastify: FastifyInstance) {
 
         if (validResults.length === 0) {
           return reply.status(404).send({
-            error:
-              "No 1080p-or-higher Torrentio streams were found for this movie",
+            error: isTvEpisode
+              ? "No 1080p-or-higher Torrentio streams were found for this episode"
+              : "No 1080p-or-higher Torrentio streams were found for this movie",
           });
         }
 
@@ -426,7 +503,11 @@ export default async function (fastify: FastifyInstance) {
             .send({ error: "Invalid magnet link extracted from Torrentio" });
         }
 
-        const existingVideoAfterSearch = await findBestVideoForTmdb(tmdb_id);
+        const existingVideoAfterSearch = await findBestVideoForTmdb(
+          tmdb_id,
+          "*",
+          findOpts,
+        );
         if (
           existingVideoAfterSearch &&
           isReusableVideoStatus(existingVideoAfterSearch.status)
@@ -455,6 +536,7 @@ export default async function (fastify: FastifyInstance) {
 
         // 3. Insert or update DB
         let videoRecord;
+        const tmdbMediaType = isTvEpisode ? "tv" : "movie";
         const { data, error } = await supabase
           .from("videos")
           .insert({
@@ -463,7 +545,14 @@ export default async function (fastify: FastifyInstance) {
             magnet_uri: magnet,
             size_bytes: size,
             tmdb_id,
+            tmdb_media_type: tmdbMediaType,
             ...videoParseCols,
+            ...(isTvEpisode
+              ? {
+                  season_number: body.season_number,
+                  episode_number: body.episode_number,
+                }
+              : {}),
           })
           .select()
           .single();
@@ -508,6 +597,13 @@ export default async function (fastify: FastifyInstance) {
                   progress: 0,
                   tmdb_id: tmdb_id || existingData.tmdb_id,
                   ...mergeVideoParseColumns(videoParseCols, existingData),
+                  tmdb_media_type: tmdbMediaType,
+                  ...(isTvEpisode
+                    ? {
+                        season_number: body.season_number,
+                        episode_number: body.episode_number,
+                      }
+                    : {}),
                 })
                 .eq("id", existingData.id)
                 .select()
@@ -526,6 +622,13 @@ export default async function (fastify: FastifyInstance) {
                   .update({
                     tmdb_id,
                     ...mergeVideoParseColumns(videoParseCols, existingData),
+                    tmdb_media_type: tmdbMediaType,
+                    ...(isTvEpisode
+                      ? {
+                          season_number: body.season_number,
+                          episode_number: body.episode_number,
+                        }
+                      : {}),
                   })
                   .eq("id", existingData.id);
               }

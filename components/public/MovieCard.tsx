@@ -10,6 +10,8 @@ interface MovieCardProps {
   posterPath: string | null;
   releaseDate?: string;
   voteAverage?: number;
+  /** Defaults to movie (`/watch/[id]`). TV uses `/watch/tv/[id]`. */
+  mediaType?: "movie" | "tv";
 }
 
 export default function MovieCard({
@@ -18,6 +20,7 @@ export default function MovieCard({
   posterPath,
   releaseDate,
   voteAverage,
+  mediaType = "movie",
 }: MovieCardProps) {
   const imageUrl = posterPath
     ? `https://image.tmdb.org/t/p/w500${posterPath}`
@@ -29,7 +32,10 @@ export default function MovieCard({
       whileHover={{ scale: 1.02 }}
       transition={{ type: "spring", stiffness: 400, damping: 5 }}
     >
-      <Link href={`/watch/${id}`} className="w-full block h-full group">
+      <Link
+        href={mediaType === "tv" ? `/watch/tv/${id}` : `/watch/${id}`}
+        className="w-full block h-full group"
+      >
         <div className="relative w-full aspect-[2/3] bg-muted rounded-xl md:rounded-2xl overflow-hidden shadow-lg border border-white/5">
           {/* The image now perfectly fills the container and respects the border radius */}
           <img

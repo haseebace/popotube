@@ -4,7 +4,17 @@ const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:3001";
 
 export async function POST(request: Request) {
   try {
-    const { tmdb_id, title, year, watch_flow_id } = await request.json();
+    const body = (await request.json()) as {
+      tmdb_id: unknown;
+      title: unknown;
+      year?: unknown;
+      watch_flow_id?: unknown;
+      media_type?: unknown;
+      season_number?: unknown;
+      episode_number?: unknown;
+    };
+
+    const { tmdb_id, title, year, watch_flow_id } = body;
 
     if (!tmdb_id || !title) {
       return NextResponse.json(
@@ -13,16 +23,32 @@ export async function POST(request: Request) {
       );
     }
 
+    const mediaType =
+      body.media_type === "tv" || body.media_type === "movie"
+        ? body.media_type
+        : undefined;
+    const seasonNum =
+      typeof body.season_number === "number" ? body.season_number : undefined;
+    const episodeNum =
+      typeof body.episode_number === "number" ? body.episode_number : undefined;
+
     // Proxy the public ingestion job (Torrentio lookup + scoring + BullMQ queueing) to Fastify
     const backendRes = await fetch(`${BACKEND_URL}/api/trigger-ingestion`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tmdb_id: parseInt(tmdb_id, 10),
+        tmdb_id: parseInt(String(tmdb_id), 10),
         title,
         year,
         ...(typeof watch_flow_id === "string" && watch_flow_id
           ? { watch_flow_id }
+          : {}),
+        ...(mediaType === "tv" && seasonNum != null && episodeNum != null
+          ? {
+              media_type: "tv" as const,
+              season_number: seasonNum,
+              episode_number: episodeNum,
+            }
           : {}),
       }),
     });
