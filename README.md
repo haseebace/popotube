@@ -43,8 +43,8 @@ User clicks "Watch" on a movie
   by TMDb/IMDb metadata
         │
         ▼
-  Real-Debrid instantAvailability
-  prefers already cached hashes
+  Best Torrentio release is chosen
+  from metadata (no RD hash probe)
         │
         ▼
   Real-Debrid downloads the torrent
@@ -103,12 +103,12 @@ docker compose up -d --build   # Jackett + backend + Comet + Postgres
 npm run dev                    # Frontend on the host
 ```
 
-| Service | URL |
-|---------|-----|
-| Frontend | `http://localhost:3000` |
+| Service     | URL                     |
+| ----------- | ----------------------- |
+| Frontend    | `http://localhost:3000` |
 | Backend API | `http://localhost:3001` |
-| Jackett UI | `http://localhost:9117` |
-| Comet | `http://localhost:8000` |
+| Jackett UI  | `http://localhost:9117` |
+| Comet       | `http://localhost:8000` |
 
 #### 4. Configure Jackett
 
@@ -136,6 +136,7 @@ npm run dev
 ```
 
 Notes:
+
 - The root `docker-compose.yml` does not run the frontend. Run Next.js on the host for fast refresh.
 - Use `http://127.0.0.1:9117` for `JACKETT_URL` when the frontend is running on your machine.
 - Do not run another Comet compose stack on port `8000` at the same time.
