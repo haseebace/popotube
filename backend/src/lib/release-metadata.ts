@@ -44,6 +44,31 @@ function normalizeCodec(raw?: string): string {
   return "unknown";
 }
 
+/** Torrentio/Stremio often use `%5B` etc.; decoding avoids mis-parsed metadata. */
+function decodeReleaseTitle(title: string): string {
+  const t = title.trim();
+  if (!t.includes("%")) return t;
+  try {
+    return decodeURIComponent(t.replace(/\+/g, " "));
+  } catch {
+    return t;
+  }
+}
+
+/**
+ * When parse-torrent-title misses codec (e.g. split across Torrentio title lines),
+ * scan the raw release string.
+ */
+function inferCodecFromReleaseTitle(title: string): string {
+  const t = decodeReleaseTitle(title).toLowerCase();
+  if (/\bx265\b|\bh\.?265\b|\bhevc\b/.test(t)) return "HEVC";
+  if (/\bx264\b|\bh\.?264\b|\bavc\b/.test(t)) return "H.264";
+  if (/\bav1\b/.test(t)) return "AV1";
+  if (/\bxvid\b/.test(t)) return "XVID";
+  if (/\bdivx\b/.test(t)) return "DIVX";
+  return "unknown";
+}
+
 function normalizeSource(parsed: ParsedResult): string {
   const q = (parsed.quality || "").toLowerCase().replace(/[\s.-]/g, "");
   const types = (parsed.releaseTypes || []).map((t) => t.toLowerCase());
@@ -72,7 +97,16 @@ function normalizeSource(parsed: ParsedResult): string {
   return "unknown";
 }
 
-function mapParsedResult(raw: ParsedResult): ReleaseMetadata {
+function mapParsedResult(
+  raw: ParsedResult,
+  sourceTitle: string,
+): ReleaseMetadata {
+  let codec = normalizeCodec(raw.codec);
+  if (codec === "unknown") {
+    const inferred = inferCodecFromReleaseTitle(sourceTitle);
+    if (inferred !== "unknown") codec = inferred;
+  }
+
   const quality = normalizeResolution(raw.resolution);
 
   const seasonNumber =
@@ -103,7 +137,7 @@ function mapParsedResult(raw: ParsedResult): ReleaseMetadata {
 
   return {
     quality,
-    codec: normalizeCodec(raw.codec),
+    codec,
     source: normalizeSource(raw),
     seasonNumber,
     episodeNumber,
@@ -117,7 +151,9 @@ export async function parseReleaseMetadata(
   title: string,
 ): Promise<ReleaseMetadata> {
   const parseTorrentTitle = await parserModule;
-  return mapParsedResult(parseTorrentTitle(title));
+  const normalized = decodeReleaseTitle(title);
+  const raw = parseTorrentTitle(normalized);
+  return mapParsedResult(raw, normalized);
 }
 
 export type VideoParseColumns = {
