@@ -125,6 +125,14 @@ export const springCta: Transition = {
   damping: 25,
 };
 
+/** Navbar search: expand / collapse width */
+export const springSearchBar: Transition = {
+  type: "spring",
+  stiffness: 420,
+  damping: 28,
+  mass: 0.75,
+};
+
 export const springCardHover: Transition = {
   type: "spring",
   stiffness: 350,

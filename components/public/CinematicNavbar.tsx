@@ -10,11 +10,15 @@ import {
   useMotionTemplate,
 } from "framer-motion";
 import { Search, User, Loader2 } from "lucide-react";
-import { navEntry, springCta } from "@/lib/motion";
+import { navEntry, springCta, springSearchBar } from "@/lib/motion";
+import { StreamingNavDropdown } from "@/components/public/StreamingNavDropdown";
+import { STREAMING_PROVIDERS } from "@/lib/streaming-providers";
 
 const links = [
-  { href: "/", label: "Browse" },
-  { href: "/categories", label: "My Library" },
+  { href: "/", label: "Home" },
+  { href: "/categories", label: "Catalog" },
+  { href: "/movies", label: "Movies" },
+  { href: "/tv-series", label: "TV Series" },
 ];
 
 interface SearchResult {
@@ -23,6 +27,9 @@ interface SearchResult {
   poster_path: string | null;
   release_date: string;
 }
+
+const SEARCH_COLLAPSED_W = 44;
+const SEARCH_EXPANDED_W = 300;
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -45,7 +52,9 @@ export default function CinematicNavbar() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const debouncedQuery = useDebounce(query, 300);
 
   useEffect(() => {
@@ -55,11 +64,31 @@ export default function CinematicNavbar() {
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setShowDropdown(false);
+        setSearchExpanded(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (searchExpanded) {
+      const t = requestAnimationFrame(() => searchInputRef.current?.focus());
+      return () => cancelAnimationFrame(t);
+    }
+  }, [searchExpanded]);
+
+  useEffect(() => {
+    if (!searchExpanded) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSearchExpanded(false);
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [searchExpanded]);
 
   useEffect(() => {
     if (!debouncedQuery.trim()) {
@@ -100,9 +129,12 @@ export default function CinematicNavbar() {
           >
             PoPoTube
           </Link>
-          <div className="hidden items-center gap-8 md:flex">
+          <div className="hidden flex-wrap items-center gap-x-8 gap-y-3 md:flex">
             {links.map(({ href, label }) => {
-              const active = pathname === href;
+              const active =
+                href === "/"
+                  ? pathname === "/"
+                  : pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <motion.div
                   key={href}
@@ -123,39 +155,102 @@ export default function CinematicNavbar() {
                 </motion.div>
               );
             })}
+            <div className="hidden items-center gap-x-5 gap-y-2 border-l border-white/15 pl-8 lg:flex">
+              {STREAMING_PROVIDERS.map((p) => {
+                const active = pathname === `/browse/${p.slug}`;
+                return (
+                  <motion.div
+                    key={p.slug}
+                    className="inline-block"
+                    whileHover={{ y: -1 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Link
+                      href={`/browse/${p.slug}`}
+                      className={
+                        active
+                          ? "whitespace-nowrap border-b-2 border-white pb-1 text-xs font-medium text-white"
+                          : "whitespace-nowrap text-xs font-medium text-neutral-400 transition-colors hover:text-white"
+                      }
+                    >
+                      {p.navLabel}
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+            <div className="flex lg:hidden">
+              <StreamingNavDropdown variant="desktop" />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-6">
+          <div className="md:hidden">
+            <StreamingNavDropdown variant="mobile" />
+          </div>
           <div className="relative hidden md:block" ref={dropdownRef}>
-            <form
-              action="/search"
-              method="get"
-              className="flex items-center gap-2 rounded-noir bg-neutral-800/50 px-4 py-1.5"
+            <motion.div
+              className="flex overflow-hidden rounded-noir bg-neutral-800/50"
+              initial={false}
+              animate={{
+                width: searchExpanded ? SEARCH_EXPANDED_W : SEARCH_COLLAPSED_W,
+              }}
+              transition={springSearchBar}
             >
-              <Search
-                className="h-4 w-4 shrink-0 text-neutral-400"
-                aria-hidden
-              />
-              <input
-                name="q"
-                type="search"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setShowDropdown(true);
-                }}
-                onFocus={() => {
-                  if (query.trim()) setShowDropdown(true);
-                }}
-                placeholder="Search films..."
-                className="w-48 border-none bg-transparent text-sm text-white placeholder-neutral-500 focus:ring-0 focus:outline-none [&::-webkit-search-cancel-button]:appearance-none"
-                aria-label="Search films"
-                autoComplete="off"
-              />
-              {isSearching && (
-                <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
-              )}
-            </form>
+              <form
+                action="/search"
+                method="get"
+                className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-1 pr-3"
+              >
+                <motion.button
+                  type="button"
+                  aria-expanded={searchExpanded}
+                  aria-label={searchExpanded ? undefined : "Open search"}
+                  aria-hidden={searchExpanded}
+                  tabIndex={searchExpanded ? -1 : 0}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-noir text-neutral-400 transition-colors hover:bg-white/5 hover:text-white"
+                  onClick={() => {
+                    setSearchExpanded(true);
+                    if (query.trim()) setShowDropdown(true);
+                  }}
+                  whileTap={{ scale: 0.94 }}
+                  transition={springCta}
+                >
+                  <Search className="h-4 w-4" aria-hidden />
+                </motion.button>
+                <motion.div
+                  className="flex min-w-0 flex-1 items-center gap-2"
+                  initial={false}
+                  animate={{
+                    opacity: searchExpanded ? 1 : 0,
+                    x: searchExpanded ? 0 : -12,
+                  }}
+                  transition={springSearchBar}
+                  style={{ pointerEvents: searchExpanded ? "auto" : "none" }}
+                >
+                  <input
+                    ref={searchInputRef}
+                    name="q"
+                    type="search"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setShowDropdown(true);
+                    }}
+                    onFocus={() => {
+                      if (query.trim()) setShowDropdown(true);
+                    }}
+                    placeholder="Search films..."
+                    className="min-w-0 flex-1 border-none bg-transparent text-sm text-white placeholder-neutral-500 focus:ring-0 focus:outline-none [&::-webkit-search-cancel-button]:appearance-none"
+                    aria-label="Search films"
+                    autoComplete="off"
+                  />
+                  {isSearching && (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-neutral-400" />
+                  )}
+                </motion.div>
+              </form>
+            </motion.div>
 
             {showDropdown && query.trim() && (
               <div className="absolute top-full right-0 mt-2 w-[320px] rounded-noir border border-outline-variant/20 bg-surface-container-high/95 p-2 backdrop-blur-xl shadow-2xl">

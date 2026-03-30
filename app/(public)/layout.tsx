@@ -9,7 +9,7 @@ export default function PublicLayout({
 }) {
   return (
     <MotionConfigProvider>
-      <div className="flex min-h-screen flex-col bg-surface text-on-surface">
+      <div className="public-shell flex min-h-screen flex-col bg-surface text-on-surface">
         <CinematicNavbar />
         <main className="flex w-full flex-1 flex-col pt-14">{children}</main>
       </div>
