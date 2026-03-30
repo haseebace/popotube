@@ -4,6 +4,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Prevent white top-gap during elastic overscroll pull-down on public pages */
+html {
+  background-color: #131313;
+  overscroll-behavior-y: none;
+}
+
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Scope dark overscroll canvas to public routes only. */
+body:has(.public-shell) {
+  background-color: #131313 !important;
+  overscroll-behavior-y: none;
+}
+
 /*
  * Tailwind @theme: two layers
  * 1) Shadcn bridge — maps utilities (bg-primary, etc.) to :root vars below (unchanged light admin theme).
@@ -316,4 +332,147 @@
 
 .overflow-hidden.rounded-noir {
   isolation: isolate;
+}
+
+/* Watch page: Video.js fills the flex column under the close control */
+.watch-netflix-vjs {
+  min-height: 0;
+}
+.watch-netflix-vjs .video-js {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Watch page: Netflix-like player controls */
+.watch-netflix-vjs .watch-netflix-player {
+  background: #000;
+  font-size: 18px;
+  color: #fff;
+}
+
+.watch-netflix-vjs .watch-netflix-player.vjs-user-inactive .vjs-control-bar {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-control-bar {
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15em 0.45em;
+  height: auto;
+  min-height: 5.3em;
+  padding: 0.5em 1.1em 0.75em;
+  background: linear-gradient(to top, rgb(0 0 0 / 88%) 12%, rgb(0 0 0 / 0%));
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-control:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-control {
+  width: 2.9em;
+  height: 2.5em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.watch-netflix-vjs
+  .watch-netflix-player
+  .vjs-button
+  > .vjs-icon-placeholder::before {
+  font-size: 2.05em;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-time-control {
+  font-size: 1.02em;
+  line-height: 2.35em;
+  min-width: 4.2em;
+  height: 2.35em;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-progress-control {
+  order: -1;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 1.3em;
+  margin-bottom: 0.12em;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-progress-holder {
+  margin: 0;
+  height: 0.68em;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 24%);
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-load-progress,
+.watch-netflix-vjs .watch-netflix-player .vjs-play-progress {
+  border-radius: 999px;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-play-progress {
+  background-color: #e50914;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-load-progress div {
+  background-color: rgb(255 255 255 / 24%);
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-slider-bar::before,
+.watch-netflix-vjs .watch-netflix-player .vjs-play-progress::before {
+  top: -0.26em;
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.watch-netflix-vjs .watch-netflix-player .vjs-big-play-button {
+  border: 0;
+  width: 2.7em;
+  height: 2.7em;
+  line-height: 2.62em;
+  border-radius: 999px;
+  font-size: 2.2em;
+  background: rgb(0 0 0 / 62%);
+  backdrop-filter: blur(4px);
+}
+
+.watch-netflix-vjs .watch-netflix-player:hover .vjs-big-play-button,
+.watch-netflix-vjs .watch-netflix-player .vjs-big-play-button:focus {
+  background: rgb(0 0 0 / 74%);
+}
+
+@media (max-width: 960px) {
+  .watch-netflix-vjs .watch-netflix-player {
+    font-size: 15px;
+  }
+
+  .watch-netflix-vjs .watch-netflix-player .vjs-control-bar {
+    min-height: 5.9em;
+    padding: 0.42em 0.75em 0.55em;
+  }
+
+  .watch-netflix-vjs .watch-netflix-player .vjs-progress-control {
+    margin-bottom: 0.08em;
+  }
+
+  .watch-netflix-vjs .watch-netflix-player .vjs-progress-holder {
+    height: 0.8em;
+  }
+
+  .watch-netflix-vjs
+    .watch-netflix-player
+    .vjs-button
+    > .vjs-icon-placeholder::before {
+    font-size: 2.2em;
+  }
 }

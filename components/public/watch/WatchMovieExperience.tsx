@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -10,6 +11,7 @@ import {
   noirCtaRow,
 } from "@/lib/noir-cta-styles";
 import { springCta } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import type { WatchMoviePayload } from "./types";
 
 const easeNoir = [0.25, 0.1, 0.25, 1] as const;
@@ -33,6 +35,13 @@ type Props = {
   year: number | null;
   genreLine: string;
   directorName: string | null;
+  /** Wired on watch page: starts Video.js / ingestion flow */
+  onPlayClick?: () => void;
+  playButtonLabel?: string;
+  /** Dim / block play when title failed or unavailable */
+  playButtonDisabled?: boolean;
+  /** e.g. ingestion progress under hero CTAs */
+  heroFooter?: ReactNode;
 };
 
 export default function WatchMovieExperience({
@@ -42,6 +51,10 @@ export default function WatchMovieExperience({
   year,
   genreLine,
   directorName,
+  onPlayClick,
+  playButtonLabel = "PLAY",
+  playButtonDisabled = false,
+  heroFooter,
 }: Props) {
   const backdropUrl = movie.backdrop_path
     ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}`
@@ -163,17 +176,21 @@ export default function WatchMovieExperience({
               >
                 <motion.button
                   type="button"
-                  className={noirCtaPrimaryMotion}
+                  className={cn(
+                    noirCtaPrimaryMotion,
+                    playButtonDisabled && "pointer-events-none opacity-45",
+                  )}
                   inherit={false}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={playButtonDisabled ? undefined : { scale: 1.03 }}
+                  whileTap={playButtonDisabled ? undefined : { scale: 0.97 }}
                   transition={springCta}
+                  onClick={() => onPlayClick?.()}
                 >
                   <Play
                     className="h-6 w-6 shrink-0 fill-noir-on-primary text-noir-on-primary"
                     aria-hidden
                   />
-                  PLAY
+                  {playButtonLabel}
                 </motion.button>
                 <motion.button
                   type="button"
@@ -191,6 +208,9 @@ export default function WatchMovieExperience({
                   WATCHLIST
                 </motion.button>
               </motion.div>
+              {heroFooter ? (
+                <div className="mt-8 max-w-2xl">{heroFooter}</div>
+              ) : null}
             </div>
           </div>
         </section>

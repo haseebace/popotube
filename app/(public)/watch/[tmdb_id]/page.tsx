@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import WatchMovieExperience from "@/components/public/watch/WatchMovieExperience";
+import WatchPageShell from "@/components/public/watch/WatchPageShell";
 import type { WatchMoviePayload } from "@/components/public/watch/types";
 import {
   rankSimilarMovies,
@@ -141,7 +141,12 @@ export default async function WatchPage({
   const director = movie.credits?.crew?.find((c) => c.job === "Director");
 
   return (
-    <WatchMovieExperience
+    <WatchPageShell
+      tmdbId={tmdb_id}
+      ingestMeta={{
+        title: movie.title,
+        release_date: movie.release_date,
+      }}
       payload={toPayload(movie)}
       teaser={heroTeaser(movie)}
       certification={usCertification(movie)}
