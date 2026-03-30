@@ -9,11 +9,11 @@
 
 PoPoTube is a self-hosted web application that lets you search for torrents via Jackett, instantly retrieve video files using **Real-Debrid**, and stream them directly in the browser — no local torrent clients, no disk storage, no transcoding delays.
 
-The app integrates with **Torrentio** and **Comet** as torrent discovery sources alongside Jackett, with Real-Debrid handling downloads. The public watch flow now prefers Torrentio candidates that are already cached on Real-Debrid by checking torrent hash instant-availability before queueing ingestion. Videos are streamed via server-side proxy for seamless browser playback.
+The app integrates with **Torrentio** as a torrent discovery source alongside Jackett, with Real-Debrid handling downloads. The public watch flow now prefers Torrentio candidates that are already cached on Real-Debrid by checking torrent hash instant-availability before queueing ingestion. Videos are streamed via server-side proxy for seamless browser playback.
 
 ## ✨ Features
 
-- **Torrent Search**: Integrated with Jackett, Torrentio, and Comet to search across public and private trackers.
+- **Torrent Search**: Integrated with Jackett and Torrentio to search across public and private trackers.
 - **Cache-Aware Selection**: Public playback prefers Torrentio candidates already available on Real-Debrid for faster startup.
 - **Zero Local Storage**: Files are downloaded by Real-Debrid and streamed directly via HTTP — nothing touches your server's disk.
 - **Instant Playback**: Completed downloads are unrestricted through Real-Debrid and proxied to the browser for immediate streaming.
@@ -28,7 +28,7 @@ The app integrates with **Torrentio** and **Comet** as torrent discovery sources
 - **Backend**: Node.js, Fastify 5, TypeScript
 - **Queue System**: BullMQ backed by Redis
 - **Database**: Supabase (PostgreSQL + Realtime)
-- **Torrent Search**: Jackett (Dockerized), Torrentio, Comet
+- **Torrent Search**: Jackett (Dockerized), Torrentio
 - **Downloader**: Real-Debrid API
 - **Stream Proxy**: Fastify reverse-proxy for browser-compatible playback
 - **Planned**: MediaFlow Proxy for live transcoding of non-browser-native containers (MKV, AVI, etc.) into HLS
@@ -83,9 +83,6 @@ REDIS_URL=redis://...
 JACKETT_URL=http://127.0.0.1:9117
 JACKETT_API_KEY=<your-jackett-api-key>
 
-# Comet
-COMET_URL=http://127.0.0.1:8000
-
 # Backend
 BACKEND_URL=http://127.0.0.1:3001
 
@@ -99,7 +96,7 @@ REAL_DEBRID_API_KEY=<your-real-debrid-api-token>
 #### 3. Build & Run
 
 ```bash
-docker compose up -d --build   # Jackett + backend + Comet + Postgres
+docker compose up -d --build   # Jackett + backend
 npm run dev                    # Frontend on the host
 ```
 
@@ -108,7 +105,6 @@ npm run dev                    # Frontend on the host
 | Frontend    | `http://localhost:3000` |
 | Backend API | `http://localhost:3001` |
 | Jackett UI  | `http://localhost:9117` |
-| Comet       | `http://localhost:8000` |
 
 #### 4. Configure Jackett
 
@@ -125,7 +121,7 @@ npm install              # Frontend (root)
 npm install --prefix backend  # Backend
 
 # Start infra
-docker compose up -d jackett comet comet-postgres
+docker compose up -d jackett
 redis-server --daemonize yes
 
 # Start backend (port 3001)
@@ -139,12 +135,11 @@ Notes:
 
 - The root `docker-compose.yml` does not run the frontend. Run Next.js on the host for fast refresh.
 - Use `http://127.0.0.1:9117` for `JACKETT_URL` when the frontend is running on your machine.
-- Do not run another Comet compose stack on port `8000` at the same time.
 
 ## 🗺️ Roadmap
 
 - **MediaFlow Proxy**: Live transcoding of non-browser-native video containers (MKV, AVI, TS) into HLS for universal browser playback.
-- **Torrentio / Comet deep integration**: Enhanced source selection and quality scoring.
+- **Torrentio deep integration**: Enhanced source selection and quality scoring.
 - **Multi-provider support**: Pluggable debrid backends beyond Real-Debrid.
 
 ## 📝 License

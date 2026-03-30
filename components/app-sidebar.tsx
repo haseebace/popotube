@@ -47,7 +47,6 @@ const items = [
     subItems: [
       { title: "Jackett", url: "/admin/search-jackett" },
       { title: "Torrentio", url: "/admin/search-torrentio" },
-      { title: "Comet", url: "/admin/search-comet" },
     ],
   },
   {
@@ -204,7 +203,10 @@ function CollapsibleSidebarItem({
                     className="flex flex-col gap-1"
                   >
                     {item.subItems!.map((sub) => (
-                      <motion.div key={sub.title} variants={sidebarVariants.item}>
+                      <motion.div
+                        key={sub.title}
+                        variants={sidebarVariants.item}
+                      >
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton
                             asChild

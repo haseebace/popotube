@@ -13,18 +13,16 @@ Both packages use **npm** with lockfiles. Run `npm install` separately in each d
 
 ### Running Services
 
-| Service | Command | Port | Notes |
-|---------|---------|------|-------|
-| Frontend | `npm run dev` (from root) | 3000 | **Host only** — Next.js dev with Turbopack (not started by root `docker-compose.yml`) |
-| Backend | `npm run dev` (from `backend/`) | 3001 | Local dev with `tsx watch`, or run in Docker via `docker compose up backend` |
-| Redis | `redis-server --daemonize yes` | 6379 | Required by backend (BullMQ) |
-| Docker stack | `docker compose up -d` (repo root) | 9117 / 3001 / 8000 | **Jackett**, **backend**, **Comet**, and **comet-postgres** — see root `docker-compose.yml` |
+| Service      | Command                            | Port        | Notes                                                                                 |
+| ------------ | ---------------------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| Frontend     | `npm run dev` (from root)          | 3000        | **Host only** — Next.js dev with Turbopack (not started by root `docker-compose.yml`) |
+| Backend      | `npm run dev` (from `backend/`)    | 3001        | Local dev with `tsx watch`, or run in Docker via `docker compose up backend`          |
+| Redis        | `redis-server --daemonize yes`     | 6379        | Required by backend (BullMQ)                                                          |
+| Docker stack | `docker compose up -d` (repo root) | 9117 / 3001 | **Jackett** and **backend** — see root `docker-compose.yml`                           |
 
-**Docker Compose (repo root):** starts **Jackett**, **backend**, **Comet**, and **comet-postgres** only. The **Next.js app is not in Compose**; use `npm run dev` locally for fast refresh. In `.env`, point `JACKETT_URL` / `COMET_URL` / `BACKEND_URL` at `http://127.0.0.1:…` so the host dev server can reach published ports. The **backend container** sets `JACKETT_URL=http://jackett:9117` so it reaches Jackett by Docker service name.
+**Docker Compose (repo root):** starts **Jackett** and **backend** only. The **Next.js app is not in Compose**; use `npm run dev` locally for fast refresh. In `.env`, point `JACKETT_URL` / `BACKEND_URL` at `http://127.0.0.1:…` so the host dev server can reach published ports. The **backend container** sets `JACKETT_URL=http://jackett:9117` so it reaches Jackett by Docker service name.
 
-**Do not use `http://host.docker.internal:9117` for `JACKETT_URL` when Next runs on your machine** — that hostname is for processes *inside* Docker to reach the host. Use `http://127.0.0.1:9117` (or `localhost`) so API routes can reach Jackett’s published port.
-
-**Duplicate Comet:** root `docker-compose.yml` publishes Comet on **port 8000**. Do **not** run the separate `comet-deploy /docker-compose.yml` stack at the same time (it also uses port 8000) — stop one stack or remove the duplicate to avoid clashes.
+**Do not use `http://host.docker.internal:9117` for `JACKETT_URL` when Next runs on your machine** — that hostname is for processes _inside_ Docker to reach the host. Use `http://127.0.0.1:9117` (or `localhost`) so API routes can reach Jackett’s published port.
 
 ### UI copy and terminology
 
