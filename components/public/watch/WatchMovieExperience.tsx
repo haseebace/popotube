@@ -115,7 +115,9 @@ export default function WatchMovieExperience({
                 className="label-md uppercase tracking-[0.2em] text-noir-secondary"
                 {...fadeUp(tLabel)}
               >
-                A cinematic original
+                {genreLine && genreLine !== "—"
+                  ? genreLine
+                  : "FEATURED PRESENTATION"}
               </motion.span>
               <motion.h1
                 inherit={false}
@@ -124,6 +126,27 @@ export default function WatchMovieExperience({
               >
                 {movie.title}
               </motion.h1>
+
+              <motion.div
+                inherit={false}
+                className="flex items-center gap-4 label-md uppercase tracking-[0.1em] text-noir-secondary"
+                {...fadeUp(tTitle + 0.04)}
+              >
+                {year && <span>{year}</span>}
+                {movie.vote_average ? (
+                  <span className="flex items-center gap-1">
+                    <span className="text-yellow-500 text-base -mt-0.5">★</span>
+                    {movie.vote_average.toFixed(1)}
+                  </span>
+                ) : null}
+                {movie.runtime ? <span>{movie.runtime} MIN</span> : null}
+                {certification ? (
+                  <span className="rounded-sm border border-noir-secondary/30 px-1.5 py-0.5">
+                    {certification}
+                  </span>
+                ) : null}
+              </motion.div>
+
               {teaser ? (
                 <motion.p
                   inherit={false}

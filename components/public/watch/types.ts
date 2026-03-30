@@ -19,6 +19,7 @@ export type WatchMoviePayload = {
   overview?: string;
   backdrop_path?: string | null;
   poster_path?: string | null;
+  vote_average?: number;
   runtime?: number | null;
   release_date?: string;
   genres?: { id: number; name: string }[];

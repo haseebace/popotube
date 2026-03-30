@@ -103,6 +103,7 @@ function toPayload(movie: TMDBMovieDetails): WatchMoviePayload {
     overview: movie.overview,
     backdrop_path: movie.backdrop_path,
     poster_path: movie.poster_path,
+    vote_average: movie.vote_average,
     runtime: movie.runtime,
     release_date: movie.release_date,
     genres: movie.genres,
@@ -145,9 +146,7 @@ export default async function WatchPage({
       teaser={heroTeaser(movie)}
       certification={usCertification(movie)}
       year={
-        movie.release_date
-          ? new Date(movie.release_date).getFullYear()
-          : null
+        movie.release_date ? new Date(movie.release_date).getFullYear() : null
       }
       genreLine={movie.genres?.map((g) => g.name).join(" / ") || "—"}
       directorName={director?.name ?? null}

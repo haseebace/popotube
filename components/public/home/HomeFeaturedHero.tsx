@@ -1,13 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Play } from "lucide-react";
-import { noirCtaPrimary, noirCtaSecondary, noirCtaRow } from "@/lib/noir-cta-styles";
+import {
+  noirCtaPrimary,
+  noirCtaSecondary,
+  noirCtaRow,
+} from "@/lib/noir-cta-styles";
 
 export type FeaturedMovie = {
   id: number;
   title: string;
   overview?: string;
   backdrop_path?: string | null;
+  vote_average?: number;
+  release_date?: string;
 };
 
 type Props = {
@@ -66,6 +72,19 @@ export default function HomeFeaturedHero({ movie, genreLine }: Props) {
           <h1 className="text-6xl font-extrabold leading-tight tracking-tighter text-noir-primary md:text-8xl">
             {titleWithMidBreak(movie.title)}
           </h1>
+
+          <div className="flex items-center gap-4 label-md uppercase tracking-[0.1em] text-noir-secondary">
+            {movie.release_date && (
+              <span>{new Date(movie.release_date).getFullYear()}</span>
+            )}
+            {movie.vote_average ? (
+              <span className="flex items-center gap-1">
+                <span className="text-yellow-500 text-base -mt-0.5">★</span>
+                {movie.vote_average.toFixed(1)}
+              </span>
+            ) : null}
+          </div>
+
           {movie.overview ? (
             <p className="max-w-xl text-lg font-light leading-relaxed text-noir-secondary">
               {movie.overview.length > 220

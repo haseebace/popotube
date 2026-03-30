@@ -13,6 +13,7 @@ type TMDBListMovie = {
   poster_path?: string | null;
   release_date?: string;
   genre_ids?: number[];
+  vote_average?: number;
 };
 
 type TMDBListResponse = {
@@ -66,6 +67,8 @@ export default async function PublicHomepage() {
             title: featured.title,
             overview: featured.overview,
             backdrop_path: featured.backdrop_path,
+            vote_average: featured.vote_average,
+            release_date: featured.release_date,
           }}
           genreLine={genreSlashLine(featured.genre_ids)}
         />
