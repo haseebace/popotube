@@ -57,47 +57,51 @@ User clicks "Watch" on a movie
 
 ## 🚀 Getting Started
 
-### Docker Compose + Host Frontend (Recommended)
+### Environment Templates
 
-#### 1. Prerequisites
+- Frontend template: [`.env.frontend.example`](.env.frontend.example)
+- Backend template: [`backend/.env.example`](backend/.env.example)
+
+Use them as source-of-truth for variable ownership:
+
+- Frontend (Vercel): `BACKEND_URL`, `TMDB_*`, `NEXT_PUBLIC_SUPABASE_*`, optional `NEXT_PUBLIC_*` flags.
+- Backend (VPS/local): `REDIS_URL`, `SUPABASE_*`, `REAL_DEBRID_API_KEY`, `JACKETT_*`, `MEDIAFLOW_*`, `BACKEND_INTERNAL_API_KEY`.
+
+### Local Development (Host Frontend + Dockerized Backend/Jackett)
+
+#### 1) Prerequisites
 
 - [Docker](https://docs.docker.com/engine/install/) & Docker Compose
+- Node.js + npm
 - A [Supabase](https://supabase.com/) project
 - A [Real-Debrid](https://real-debrid.com/) Premium account
 
-#### 2. Environment Variables
+#### 2) Configure Environment
 
-Create a `.env` file at the project root:
-
-```ini
-# Database / Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=<your-anon-key>
-SUPABASE_URL=https://<your-project>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
-
-# Redis (For BullMQ)
-REDIS_URL=redis://...
-
-# Jackett
-JACKETT_URL=http://127.0.0.1:9117
-JACKETT_API_KEY=<your-jackett-api-key>
-
-# Backend
-BACKEND_URL=http://127.0.0.1:3001
-
-# TMDB
-TMDB_API_KEY=<your-tmdb-api-key>
-
-# Real-Debrid
-REAL_DEBRID_API_KEY=<your-real-debrid-api-token>
-```
-
-#### 3. Build & Run
+Create root `.env` for local development (shared local runtime), and optionally `backend/.env` when running backend directly:
 
 ```bash
-docker compose up -d --build   # Jackett + backend
-npm run dev                    # Frontend on the host
+cp .env.frontend.example .env
+cp backend/.env.example backend/.env
+```
+
+Then fill in real values.
+
+#### 3) Install Dependencies
+
+```bash
+npm install
+npm install --prefix backend
+```
+
+#### 4) Start Services
+
+```bash
+# Jackett + backend container
+docker compose -f docker-compose.dev.yml up -d --build
+
+# Frontend on host
+npm run dev
 ```
 
 | Service     | URL                     |
@@ -106,35 +110,41 @@ npm run dev                    # Frontend on the host
 | Backend API | `http://localhost:3001` |
 | Jackett UI  | `http://localhost:9117` |
 
-#### 4. Configure Jackett
+### Production Split Deployment
 
-1. Open Jackett's web UI at port `9117` on localhost.
-2. Copy the API Key from the top-right and add it to your `.env` as `JACKETT_API_KEY`.
-3. Add your preferred indexers (e.g., 1337x, ThePirateBay, RARBG).
-4. Restart the stack if needed: `docker compose down && docker compose up -d`.
+#### Frontend (Vercel)
 
-### Local Development
+- Deploy repository root as the Next.js project.
+- Set Vercel environment variables:
+  - `BACKEND_URL=https://<your-vps-api-domain>`
+  - `TMDB_API_KEY`, `TMDB_BASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
+
+#### Backend (VPS)
+
+Pick one:
+
+1. **Docker Compose on VPS** using [`backend/docker-compose.vps.yml`](backend/docker-compose.vps.yml), or
+2. **Process manager (systemd/pm2)** running `backend/dist/index.js`.
+
+For Docker Compose flow:
 
 ```bash
-# Install dependencies
-npm install              # Frontend (root)
-npm install --prefix backend  # Backend
-
-# Start infra
-docker compose up -d jackett
-redis-server --daemonize yes
-
-# Start backend (port 3001)
-cd backend && npm run dev
-
-# Start frontend (port 3000) in a separate terminal
-npm run dev
+cd backend
+cp .env.example .env
+docker compose -f docker-compose.vps.yml up -d --build
 ```
 
-Notes:
+Expose backend through a domain/reverse proxy and set frontend `BACKEND_URL` to that public API origin.
 
-- The root `docker-compose.yml` does not run the frontend. Run Next.js on the host for fast refresh.
-- Use `http://127.0.0.1:9117` for `JACKETT_URL` when the frontend is running on your machine.
+### Cleanup / Removed Burden
+
+The project now uses split deployment artifacts:
+
+- Removed root `Dockerfile` (frontend deploys on Vercel directly).
+- Removed root `docker-compose.yml` (replaced by:
+  - `docker-compose.dev.yml` for local dev
+  - `backend/docker-compose.vps.yml` for VPS backend stack).
 
 ## 🗺️ Roadmap
 

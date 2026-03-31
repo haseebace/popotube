@@ -1,0 +1,40 @@
+# VPS deployment stack for backend API and its dependencies.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: popotube-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: popotube-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - AUTO_UPDATE=true
+    volumes:
+      - ../docker/jackett/config:/config
+    ports:
+      - "9117:9117"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: popotube-backend
+    env_file:
+      - ./.env
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+      - jackett
+    restart: unless-stopped
+
+volumes:
+  redis_data:

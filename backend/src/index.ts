@@ -1,9 +1,5 @@
 import Fastify from "fastify";
-import * as dotenv from "dotenv";
-import path from "path";
-
-// Load environment variables from .env
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+import "./lib/env";
 
 import "./queue/ingestion";
 import { ingestionQueue } from "./queue/ingestion";
@@ -17,6 +13,7 @@ import settingsRoute from "./routes/settings";
 import dashboardRoute from "./routes/dashboard";
 import downloadsRoute from "./routes/downloads";
 import forceHlsRoute from "./routes/force-hls";
+import searchRoute from "./routes/search";
 
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -68,6 +65,7 @@ fastify.register(settingsRoute);
 fastify.register(dashboardRoute);
 fastify.register(downloadsRoute);
 fastify.register(forceHlsRoute);
+fastify.register(searchRoute);
 
 const serverAdapter = new FastifyAdapter();
 createBullBoard({

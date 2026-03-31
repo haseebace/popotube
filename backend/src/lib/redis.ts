@@ -1,9 +1,6 @@
 import Redis from "ioredis";
-import * as dotenv from "dotenv";
-import path from "path";
 import { logger } from "./logger";
-
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+import "./env";
 
 const redisUrl = process.env.REDIS_URL;
 
