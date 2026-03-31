@@ -213,7 +213,8 @@ export class RealDebridClient {
         config.headers.Authorization = `Bearer ${apiKey}`;
       } else {
         logger.warn(
-          "⚠️ [Real-Debrid] API Key missing during request execution.",
+          { svc: "rd" },
+          "Real-Debrid API key missing when issuing request — call will likely 401.",
         );
       }
       return config;
@@ -226,15 +227,22 @@ export class RealDebridClient {
           typeof startedAt === "number" ? Date.now() - startedAt : undefined;
         const slow = typeof durationMs === "number" && durationMs >= 2000;
         const fields = {
+          svc: "rd" as const,
           method: response.config.method?.toUpperCase(),
           path: response.config.url,
           status: response.status,
           duration_ms: durationMs,
         };
         if (slow) {
-          logger.warn(fields, "rd http | slow response");
+          logger.warn(
+            fields,
+            "Real-Debrid API call slower than ~2s — possible load or large payload.",
+          );
         } else {
-          logger.debug(fields, "rd http | ok");
+          logger.debug(
+            fields,
+            "Real-Debrid API call succeeded within normal latency.",
+          );
         }
 
         return response;
@@ -245,17 +253,27 @@ export class RealDebridClient {
           typeof startedAt === "number" ? Date.now() - startedAt : undefined;
         const status = error.response?.status;
         const fields = {
+          svc: "rd" as const,
           ...rdRequestLogFields(error),
           duration_ms: durationMs,
         };
 
         // Never attach raw axios error to logs — use `fields` only (global `err` serializer also redacts tokens).
         if (status === 429) {
-          logger.warn(fields, "rd http | rate limited (429)");
+          logger.warn(
+            fields,
+            "Real-Debrid rate limited (429) — back off before retrying.",
+          );
         } else if (status === 401 || status === 403) {
-          logger.warn(fields, "rd http | unauthorized or forbidden (401/403)");
+          logger.warn(
+            fields,
+            "Real-Debrid rejected credentials (401/403) — check API key.",
+          );
         } else {
-          logger.error(fields, "rd http | request failed");
+          logger.error(
+            fields,
+            "Real-Debrid request failed — see status/path in context.",
+          );
         }
 
         return Promise.reject(error);
@@ -366,29 +384,51 @@ export class RealDebridClient {
 
     // 2. Selection logic: Select all files over 500MB, or just the largest if all are small
     const MIN_SIZE_BYTES = 500 * 1024 * 1024;
+    const BROWSER_SAFE_EXTS = [".mp4", ".webm"];
+    const isBrowserSafeContainer = (filePath: string): boolean => {
+      const lower = filePath.toLowerCase();
+      return BROWSER_SAFE_EXTS.some((ext) => lower.endsWith(ext));
+    };
+
     let selectedIds: number[] = [];
 
-    const largeFiles = candidates.filter((c) => c.file.bytes >= MIN_SIZE_BYTES);
+    // Prefer browser-safe containers (`mp4`/`webm`) for "direct from Real-Debrid" playback.
+    // If none exist, fall back to the legacy size-based selection.
+    const browserSafeCandidates = candidates.filter((c) =>
+      isBrowserSafeContainer(c.file.path),
+    );
+
+    const selectionPool =
+      browserSafeCandidates.length > 0 ? browserSafeCandidates : candidates;
+
+    const largeFiles = selectionPool.filter(
+      (c) => c.file.bytes >= MIN_SIZE_BYTES,
+    );
 
     if (largeFiles.length > 0) {
       // If there are large files, we take all of them (multi-part movies, or full seasons)
       selectedIds = largeFiles.map((c) => c.file.id);
     } else {
-      // Fallback: Just the single largest candidate from the available list
-      selectedIds = [candidates[0].file.id];
+      // Fallback: Just the single largest candidate from the available pool
+      selectedIds = [selectionPool[0].file.id];
     }
 
     logger.debug(
       {
+        svc: "rd",
         rd_torrent_id: id,
         selected_count: selectedIds.length,
         selection_mode:
-          largeFiles.length > 0
-            ? "multi-large-files"
-            : "single-largest-fallback",
+          browserSafeCandidates.length > 0
+            ? largeFiles.length > 0
+              ? "browser-safe: multi-large-files"
+              : "browser-safe: single-largest-fallback"
+            : largeFiles.length > 0
+              ? "multi-large-files"
+              : "single-largest-fallback",
         file_ids: selectedIds,
       },
-      "rd | selectFiles candidates",
+      "Real-Debrid file selection — chose which file ids to download from the torrent.",
     );
 
     const params = new URLSearchParams();

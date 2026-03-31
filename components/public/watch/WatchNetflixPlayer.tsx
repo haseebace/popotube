@@ -5,8 +5,14 @@ import videojs from "video.js";
 import { X } from "lucide-react";
 import { motion } from "framer-motion";
 import { springCta } from "@/lib/motion";
+import { isHlsMimeOrUrl, preferNativeHlsPlayback } from "@/lib/watch-playback";
 
 type VideoJsPlayer = ReturnType<typeof videojs>;
+
+export type PlaybackErrorDetail = {
+  /** HTMLMediaError / Video.js: 1 aborted, 2 network, 3 decode, 4 src not supported */
+  code: number | null;
+};
 
 type Props = {
   open: boolean;
@@ -15,6 +21,7 @@ type Props = {
   mimeType: string;
   poster?: string | null;
   title: string;
+  onPlaybackError?: (detail?: PlaybackErrorDetail) => void;
 };
 
 /**
@@ -27,7 +34,9 @@ export default function WatchNetflixPlayer({
   mimeType,
   poster,
   title,
+  onPlaybackError,
 }: Props) {
+  const keepControlsVisible = process.env.NODE_ENV !== "production";
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<VideoJsPlayer | null>(null);
   const onCloseRef = useRef(onClose);
@@ -86,14 +95,32 @@ export default function WatchNetflixPlayer({
       el.setAttribute("crossorigin", "anonymous");
       container.appendChild(el);
 
+      const isHls = isHlsMimeOrUrl(mimeType, src);
+      // For direct MP4/WebM: prefer native playback (avoid VHS/MSE).
+      // For HLS on Safari/iOS: prefer native HLS. Other browsers can use VHS+MSE.
+      const useNativeHls = isHls && preferNativeHlsPlayback();
+
       const player = videojs(el, {
         controls: true,
         fluid: true,
         responsive: true,
         fill: true,
         preload: "auto",
-        inactivityTimeout: 1800,
+        // For debugging (dev), keep the control bar visible.
+        inactivityTimeout: keepControlsVisible ? 0 : 1800,
         controlBar: {
+          // Keep the control bar intentionally minimal to avoid multi-row clutter.
+          // (Progress stays as its own row via CSS in `app/globals.css`.)
+          children: [
+            "playToggle",
+            "volumePanel",
+            "currentTimeDisplay",
+            "timeDivider",
+            "durationDisplay",
+            "progressControl",
+            "fullscreenToggle",
+          ],
+          // Keep volume UI from resizing the control row; slider is shown as overlay via CSS.
           volumePanel: { inline: false },
           pictureInPictureToggle: false,
           remainingTimeDisplay: false,
@@ -101,11 +128,12 @@ export default function WatchNetflixPlayer({
         userActions: {
           hotkeys: true,
         },
-        playbackRates: [0.5, 1, 1.25, 1.5, 2],
         sources: [{ src, type: mimeType }],
         poster: poster || undefined,
         html5: {
-          vhs: { overrideNative: true },
+          vhs: isHls
+            ? { overrideNative: !useNativeHls }
+            : { overrideNative: false },
           nativeAudioTracks: false,
           nativeVideoTracks: false,
         },
@@ -129,6 +157,18 @@ export default function WatchNetflixPlayer({
           /* ignore */
         }
       });
+
+      player.on("error", () => {
+        const mediaErr = player.error();
+        if (keepControlsVisible && mediaErr) {
+          console.warn(
+            "[videojs] playback error",
+            mediaErr.code,
+            mediaErr.message,
+          );
+        }
+        onPlaybackError?.({ code: mediaErr?.code ?? null });
+      });
     })();
 
     return () => {
@@ -144,7 +184,7 @@ export default function WatchNetflixPlayer({
       }
       container.innerHTML = "";
     };
-  }, [open, src, mimeType, poster]);
+  }, [open, src, mimeType, poster, onPlaybackError]);
 
   if (!open) return null;
 
@@ -159,23 +199,25 @@ export default function WatchNetflixPlayer({
           className="pointer-events-none absolute inset-x-0 top-0 z-[255] h-28 bg-gradient-to-b from-black/85 to-transparent"
           aria-hidden
         />
-        <motion.button
-          type="button"
-          onClick={handleClose}
-          className="absolute left-6 top-4 z-[260] flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
-          aria-label="Close player"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={springCta}
-        >
-          <X className="h-5 w-5" strokeWidth={2} />
-        </motion.button>
-        <div className="pointer-events-none absolute left-20 top-4 z-[255] max-w-[68vw] truncate text-sm font-semibold uppercase tracking-[0.14em] text-white/90">
-          {title}
+        <div className="absolute inset-x-0 top-0 z-[260] flex h-14 items-center px-6">
+          <motion.button
+            type="button"
+            onClick={handleClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-colors hover:bg-white/20"
+            aria-label="Close player"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={springCta}
+          >
+            <X className="h-5 w-5" strokeWidth={2} />
+          </motion.button>
+          <div className="pointer-events-none ml-4 min-w-0 flex-1 truncate text-sm font-semibold uppercase tracking-[0.14em] text-white/90">
+            {title}
+          </div>
         </div>
         <div
           ref={containerRef}
-          className="watch-netflix-vjs mx-auto w-full max-w-[100vw] flex-1 px-4 pb-6"
+          className={`watch-netflix-vjs mx-auto w-full max-w-[100vw] flex-1 px-4 pb-6${keepControlsVisible ? " watch-netflix-vjs--debug" : ""}`}
         />
       </div>
     </div>

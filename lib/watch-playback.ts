@@ -29,7 +29,7 @@ export function getFinalPlaybackUrl(
 
 export function isProxyOrHlsSource(status: VideoRowLike | null): boolean {
   const t = status?.playback_source?.type;
-  return t === "proxy" || t === "mediaflow";
+  return t === "proxy" || t === "mediaflow" || t === "mediaflow_transcode_hls";
 }
 
 export function canPlayInBrowser(status: VideoRowLike | null): boolean {
@@ -45,4 +45,26 @@ export function guessVideoJsType(src: string, isProxyOrHls: boolean): string {
     return "application/x-mpegURL";
   }
   return "video/mp4";
+}
+
+export function isHlsMimeOrUrl(mimeType: string, src: string): boolean {
+  return (
+    mimeType.includes("mpegURL") ||
+    mimeType.includes("mpegurl") ||
+    /\.m3u8(\?|$)/i.test(src)
+  );
+}
+
+/**
+ * Safari / iOS WebKit: use native HLS instead of MSE+VHS — often required for
+ * multichannel AAC and avoids Chrome-style MEDIA_ERR_DECODE on some Mediaflow outputs.
+ */
+export function preferNativeHlsPlayback(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/i.test(ua)) return true;
+  return (
+    /Safari/i.test(ua) &&
+    !/Chrome|Chromium|CriOS|Edg|Firefox|FxiOS|OPR|Android/i.test(ua)
+  );
 }
