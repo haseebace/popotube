@@ -55,6 +55,18 @@ interface TorrentioStream {
   infoHash?: string;
 }
 
+class TorrentioRequestError extends Error {
+  statusCode: number;
+  upstreamStatus?: number;
+
+  constructor(message: string, statusCode: number, upstreamStatus?: number) {
+    super(message);
+    this.name = "TorrentioRequestError";
+    this.statusCode = statusCode;
+    this.upstreamStatus = upstreamStatus;
+  }
+}
+
 function buildReuseExistingVideoResponse(video: Record<string, any>) {
   return {
     message:
@@ -245,10 +257,40 @@ async function fetchTorrentioCandidates(
       ? `movie/${imdbId}.json`
       : `series/${imdbId}:${season}:${episode}.json`;
   const torrentioUrl = `${TORRENTIO_BASE_URL}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/${path}`;
-  const response = await axios.get<{ streams?: TorrentioStream[] }>(
-    torrentioUrl,
-    { timeout: 15000 },
-  );
+  let response;
+  try {
+    response = await axios.get<{ streams?: TorrentioStream[] }>(torrentioUrl, {
+      timeout: 15000,
+      headers: {
+        "user-agent": "PoPoTube/1.0 (+https://github.com/haseebace/popotube)",
+        accept: "application/json",
+      },
+    });
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      const upstreamStatus = error.response?.status;
+      if (upstreamStatus === 403) {
+        throw new TorrentioRequestError(
+          "Torrentio denied the request (HTTP 403).",
+          503,
+          upstreamStatus,
+        );
+      }
+      if (upstreamStatus && upstreamStatus >= 500) {
+        throw new TorrentioRequestError(
+          "Torrentio is currently unavailable.",
+          503,
+          upstreamStatus,
+        );
+      }
+      throw new TorrentioRequestError(
+        "Torrentio request failed.",
+        502,
+        upstreamStatus,
+      );
+    }
+    throw error;
+  }
   const streams = response.data?.streams || [];
 
   return Promise.all(
@@ -699,6 +741,21 @@ export default async function (fastify: FastifyInstance) {
         });
       } catch (err: unknown) {
         const e = err as { code?: string; name?: string };
+        if (err instanceof TorrentioRequestError) {
+          fastify.log.error(
+            {
+              svc: "watch",
+              torrentio_status: err.upstreamStatus,
+            },
+            "Trigger ingestion failed while fetching Torrentio streams.",
+          );
+          return reply.status(err.statusCode).send({
+            error:
+              err.upstreamStatus === 403
+                ? "Torrentio is blocking this server right now (HTTP 403). Try again later."
+                : "Unable to fetch streams from Torrentio right now.",
+          });
+        }
         if (e.code === "ECONNABORTED" || e.name === "TimeoutError") {
           fastify.log.error(
             { svc: "watch" },
