@@ -3,6 +3,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { Manrope } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -23,12 +24,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={manrope.variable}>
       <body className="antialiased bg-background text-foreground font-sans">
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+        <TooltipProvider>{children}</TooltipProvider>
         <Toaster position="top-right" richColors />
+        <SpeedInsights />
       </body>
     </html>
   );
 }
-
