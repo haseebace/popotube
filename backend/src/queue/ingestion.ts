@@ -5,6 +5,12 @@ import { supabase } from "../lib/supabase";
 import type { Logger } from "pino";
 import { logger } from "../lib/logger";
 import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
+import {
+  buildMediaflowPlaybackSource,
+  isContainerBrowserSafe,
+  isMediaflowEnabled,
+  type PlaybackSource,
+} from "../lib/mediaflow";
 
 export const INGESTION_QUEUE_NAME = "ingestionQueue";
 const RD_CONVERSION_POLL_MS = 750;
@@ -62,8 +68,8 @@ function createStepTimer(
               ...extra,
             },
             durationMs >= thresholdMs
-              ? `watch: worker | step_slow | ${labelText}`
-              : `watch: worker | step | ${labelText}`,
+              ? `Step slower than usual — ${labelText} (still OK)`
+              : `Step complete — ${labelText}`,
           );
         },
       };
@@ -81,8 +87,8 @@ function createStepTimer(
           ...extra,
         },
         totalElapsedMs >= 15000
-          ? "watch: worker | done_slow"
-          : "watch: worker | done",
+          ? "⏱️ Ingestion job finished (slow — large file or busy Real-Debrid)."
+          : "✅ Ingestion job finished successfully.",
       );
     },
   };
@@ -103,7 +109,9 @@ export const ingestionWorker = new Worker(
       watch_flow_id?: string;
     };
     const wf = sanitizeWatchFlowId(watch_flow_id);
-    const log = wf ? logger.child({ watch_flow_id: wf }) : logger;
+    const log = wf
+      ? logger.child({ svc: "queue", watch_flow_id: wf })
+      : logger.child({ svc: "queue" });
     let stepLog: Logger = log;
     let rdTorrentId: string | null = null;
 
@@ -119,13 +127,13 @@ export const ingestionWorker = new Worker(
         if (fetchErr?.code === "PGRST116") {
           log.info(
             { jobId: job.id, videoId },
-            "watch: worker | video_row_missing_stop",
+            "Video row was deleted — stopping worker quietly (nothing to process).",
           );
           return; // Stop processing silently
         }
         log.error(
           { err: fetchErr, jobId: job.id, videoId },
-          "watch: worker | fetch_video_failed",
+          "Could not load video row from database — ingestion aborted.",
         );
         throw new Error(
           `Failed to fetch video record ${videoId}: ${fetchErr?.message || "No record found"}`,
@@ -137,8 +145,8 @@ export const ingestionWorker = new Worker(
           ? log.child({ tmdb_id: videoRecord.tmdb_id })
           : log;
       stepLog.info(
-        { jobId: job.id, videoId, title: videoRecord.title },
-        "watch: worker | start",
+        { jobId: job.id, videoId },
+        "▶️ Worker picked up job — will add magnet to Real-Debrid and wait for cloud copy.",
       );
       const timing = createStepTimer(stepLog, job.id, videoId);
 
@@ -150,7 +158,10 @@ export const ingestionWorker = new Worker(
 
       // Phase 3.1: Send to Real-Debrid
       const addMagnetStep = timing.step("rd_add_magnet");
-      stepLog.info({ jobId: job.id }, "watch: worker | rd_add_magnet_start");
+      stepLog.info(
+        { jobId: job.id },
+        "Submitting magnet URI to Real-Debrid (torrent added to your RD account).",
+      );
       rdTorrentId = await rdClient.addMagnet(magnet_uri);
       addMagnetStep.finish({ rd_torrent_id: rdTorrentId });
 
@@ -235,7 +246,7 @@ export const ingestionWorker = new Worker(
               rd_status: torrentInfo.status,
               download_poll: downloadPolls,
             },
-            "watch: worker | rd_progress",
+            "Real-Debrid cloud download progress (polling RD until status is downloaded).",
           );
         }
 
@@ -294,12 +305,11 @@ export const ingestionWorker = new Worker(
         filesize: unrestrictData.filesize,
       });
 
-      // Mark the title as playback-ready using the direct RD link
+      // Mark the title as playback-ready (MediaFlow preferred; direct RD fallback)
       const containerExt =
         unrestrictData.filename.split(".").pop()?.toLowerCase() || "unknown";
-      const isStreamable = containerExt === "mp4" || containerExt === "webm";
-
-      const rdPlaybackSource = {
+      const isStreamable = isContainerBrowserSafe(containerExt);
+      const directPlaybackSource: PlaybackSource = {
         type: "direct",
         url: fullDownloadUrl,
         codec: videoRecord.codec || "Unknown",
@@ -309,20 +319,61 @@ export const ingestionWorker = new Worker(
         source_type: "real_debrid",
       };
 
+      let selectedPlaybackSource: PlaybackSource = directPlaybackSource;
+      if (isMediaflowEnabled()) {
+        try {
+          selectedPlaybackSource = await buildMediaflowPlaybackSource({
+            upstreamUrl: fullDownloadUrl,
+            container: containerExt,
+            codec: videoRecord.codec || "Unknown",
+            filename: unrestrictData.filename,
+          });
+        } catch (mediaflowErr) {
+          log.warn(
+            {
+              err: mediaflowErr,
+              jobId: job.id,
+              videoId,
+              source_type: "mediaflow",
+            },
+            "⚠️ Mediaflow URL build failed — falling back to direct Real-Debrid URL in the database (browser may still play if format allows).",
+          );
+        }
+      }
+
+      const playbackExplanation =
+        selectedPlaybackSource.type === "direct"
+          ? "✅ Saved playback: direct Real-Debrid HTTPS URL — browser native <video>, no Mediaflow in the path."
+          : selectedPlaybackSource.type === "mediaflow_stream"
+            ? "✅ Saved playback: Mediaflow /proxy/stream — container is browser-safe (e.g. .mp4/.webm), so Mediaflow proxies the file without live HLS transcoding."
+            : "✅ Saved playback: Mediaflow HLS transcode — .mkv or similar; player uses playlist.m3u8 and on-the-fly fMP4 segments.";
+
+      log.info(
+        {
+          jobId: job.id,
+          videoId,
+          playback_source_type: selectedPlaybackSource.type,
+          container: containerExt,
+          filename: unrestrictData.filename,
+          streamable: isStreamable,
+        },
+        playbackExplanation,
+      );
+
       await supabase
         .from("videos")
         .update({
           status: "completed",
           progress: 100,
           stream_url: fullDownloadUrl,
-          playback_source: rdPlaybackSource,
+          playback_source: selectedPlaybackSource,
         })
         .eq("id", videoId);
 
       timing.total({
         rd_torrent_id: rdTorrentId,
-        playback_source_type: rdPlaybackSource.type,
-        source_type: rdPlaybackSource.source_type,
+        playback_source_type: selectedPlaybackSource.type,
+        source_type: selectedPlaybackSource.source_type,
         filename: unrestrictData.filename,
         filesize: unrestrictData.filesize,
       });
@@ -331,7 +382,7 @@ export const ingestionWorker = new Worker(
         status: "success",
         videoId,
         stream_url: fullDownloadUrl,
-        playback_source: rdPlaybackSource,
+        playback_source: selectedPlaybackSource,
       };
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string };
@@ -350,7 +401,7 @@ export const ingestionWorker = new Worker(
           jobId: job.id,
           attempt: job.attemptsMade + 1,
         },
-        "watch: worker | error",
+        "Ingestion worker crashed or rejected — job will retry or mark video failed per BullMQ rules.",
       );
 
       const maxAttempts = job.opts.attempts || 1;
@@ -393,10 +444,12 @@ ingestionWorker.on("completed", (job) => {
     videoId?: string;
   };
   const wf = sanitizeWatchFlowId(data?.watch_flow_id);
-  const log = wf ? logger.child({ watch_flow_id: wf }) : logger;
+  const log = wf
+    ? logger.child({ svc: "queue", watch_flow_id: wf })
+    : logger.child({ svc: "queue" });
   log.debug(
     { jobId: job.id, videoId: data.videoId },
-    "watch: worker | bullmq_completed",
+    "BullMQ reported job completed (worker finished without throwing).",
   );
 });
 
@@ -405,19 +458,21 @@ ingestionWorker.on("failed", (job, err) => {
     | { watch_flow_id?: string; videoId?: string }
     | undefined;
   const wf = sanitizeWatchFlowId(data?.watch_flow_id);
-  const log = wf ? logger.child({ watch_flow_id: wf }) : logger;
+  const log = wf
+    ? logger.child({ svc: "queue", watch_flow_id: wf })
+    : logger.child({ svc: "queue" });
   if (
     err.name === "UnrecoverableError" ||
     err.message.includes("Job cancelled")
   ) {
     log.info(
       { jobId: job?.id, videoId: data?.videoId, reason: err.message },
-      "watch: worker | bullmq_cancelled",
+      "BullMQ job cancelled or stopped intentionally — not treated as a failure.",
     );
   } else {
     log.error(
       { err, jobId: job?.id, videoId: data?.videoId },
-      "watch: worker | bullmq_failed",
+      "BullMQ job failed after retries — check error and video row status in Supabase.",
     );
   }
 });

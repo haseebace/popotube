@@ -26,6 +26,20 @@ function parseTvEpisodeOpts(
   return { mode: "movie" };
 }
 
+function sanitizeVideoForPublic(
+  video: Record<string, unknown>,
+): Record<string, unknown> {
+  const playbackSource =
+    video.playback_source && typeof video.playback_source === "object"
+      ? { ...(video.playback_source as Record<string, unknown>) }
+      : null;
+  return {
+    ...video,
+    stream_url: null,
+    playback_source: playbackSource,
+  };
+}
+
 export default async function (fastify: FastifyInstance) {
   fastify.get(
     "/api/movie-status",
@@ -53,6 +67,7 @@ export default async function (fastify: FastifyInstance) {
           request.query.episode,
         );
         const log = fastify.log.child({
+          svc: "watch",
           tmdb_id: tmdbNum,
           ...(watchFlowId ? { watch_flow_id: watchFlowId } : {}),
         });
@@ -64,12 +79,13 @@ export default async function (fastify: FastifyInstance) {
         );
 
         if (watchFlowId) {
+          const fields = {
+            exists: Boolean(data),
+            video_status: data?.status ?? null,
+          };
           log.info(
-            {
-              exists: Boolean(data),
-              video_status: data?.status ?? null,
-            },
-            "watch: poll | movie-status",
+            fields,
+            "Watch UI poll — returning whether this title’s video exists and its current status.",
           );
         }
 
@@ -77,11 +93,14 @@ export default async function (fastify: FastifyInstance) {
           return reply.send({ exists: false });
         }
 
-        return reply.send({ exists: true, video: data });
+        return reply.send({
+          exists: true,
+          video: sanitizeVideoForPublic(data),
+        });
       } catch (err: unknown) {
         fastify.log.error(
-          { err, tmdb_id: request.query.tmdb_id ?? null },
-          "watch: poll | movie-status_failed",
+          { svc: "watch", err, tmdb_id: request.query.tmdb_id ?? null },
+          "Movie-status endpoint failed — client poll will see an error.",
         );
         const message =
           err instanceof Error ? err.message : "Internal server error";

@@ -50,6 +50,80 @@ function safeErrSerializer(err: unknown): Record<string, unknown> {
   return { type: "object", detail: "[non-Error]" };
 }
 
+const RESET = "\x1b[0m";
+
+/** Per-service emoji + ANSI (bold) so scans are fast in the terminal */
+const LOG_SVC = {
+  queue: { emoji: "🧵", label: "Queue worker", ansi: "\x1b[33;1m" },
+  watch: { emoji: "📺", label: "Watch API", ansi: "\x1b[36;1m" },
+  rd: { emoji: "💿", label: "Real-Debrid", ansi: "\x1b[35;1m" },
+  mediaflow: { emoji: "🎬", label: "Mediaflow", ansi: "\x1b[34;1m" },
+  supabase: { emoji: "🗄️", label: "Supabase", ansi: "\x1b[32;1m" },
+  redis: { emoji: "📮", label: "Redis", ansi: "\x1b[95;1m" },
+  http: { emoji: "🌍", label: "HTTP", ansi: "\x1b[34;1m" },
+  ingest: { emoji: "📥", label: "Ingest API", ansi: "\x1b[93;1m" },
+  // Use a dark color so it's readable on light terminals.
+  backend: { emoji: "⚙️", label: "Backend", ansi: "\x1b[30;1m" },
+} as const;
+
+export type LogSvc = keyof typeof LOG_SVC;
+
+function resolveSvc(log: Record<string, unknown>, message: string): LogSvc {
+  const raw = log.svc;
+  if (typeof raw === "string" && raw in LOG_SVC) {
+    return raw as LogSvc;
+  }
+  const msg = message;
+  if (msg.includes("rd http") || msg.includes("[Real-Debrid]")) return "rd";
+  if (msg.includes("[Supabase]")) return "supabase";
+  if (msg.includes("[Redis]")) return "redis";
+  if (
+    msg.includes("Queue worker:") ||
+    msg.includes("watch: worker") ||
+    msg.includes("Ingestion step") ||
+    msg.includes("Step complete") ||
+    msg.includes("Step slower") ||
+    msg.includes("Worker picked up job") ||
+    msg.includes("Submitting magnet URI") ||
+    msg.includes("Real-Debrid cloud download progress") ||
+    msg.includes("Saved playback:") ||
+    msg.includes("Mediaflow URL build failed") ||
+    msg.includes("Ingestion job finished") ||
+    msg.includes("BullMQ reported job") ||
+    msg.includes("BullMQ job ")
+  ) {
+    return "queue";
+  }
+  if (
+    msg.includes("watch: poll") ||
+    msg.includes("watch: stream") ||
+    msg.includes("watch: force-hls") ||
+    msg.includes("watch: trigger")
+  ) {
+    return "watch";
+  }
+  if (msg.includes("http |")) return "http";
+  if (
+    msg.includes("[Ingest]") ||
+    msg.includes("ingest route") ||
+    msg.includes("Reusing existing TMDB")
+  ) {
+    return "ingest";
+  }
+  return "backend";
+}
+
+function serviceBadge(svc: LogSvc): string {
+  const s = LOG_SVC[svc];
+  return `${s.ansi}${s.emoji} ${s.label}${RESET}`;
+}
+
+/** Same hue as the badge — colors the log sentence; context/metrics stay default. */
+function serviceColoredMessage(svc: LogSvc, message: string): string {
+  const s = LOG_SVC[svc];
+  return `${s.ansi}${message}${RESET}`;
+}
+
 function buildContextParts(log: Record<string, any>) {
   const context: string[] = [];
   const requestMethod = log.method ?? log.req?.method;
@@ -58,9 +132,20 @@ function buildContextParts(log: Record<string, any>) {
     typeof log.status !== "undefined" ? log.status : log.res?.statusCode;
 
   if (log.reqId) context.push(`req=${log.reqId}`);
+  if (log.watch_flow_id) context.push(`flow=${log.watch_flow_id}`);
+  if (typeof log.tmdb_id !== "undefined") context.push(`tmdb=${log.tmdb_id}`);
+  if (typeof log.season_number === "number")
+    context.push(`S${log.season_number}`);
+  if (typeof log.episode_number === "number")
+    context.push(`E${log.episode_number}`);
   if (log.jobId) context.push(`job=${log.jobId}`);
   if (log.videoId && log.videoId !== log.jobId)
     context.push(`video=${log.videoId}`);
+  if (typeof log.existing_video_id === "string")
+    context.push(`existing=${log.existing_video_id}`);
+  if (typeof log.imdb_id === "string") context.push(`imdb=${log.imdb_id}`);
+  if (typeof log.upstream_host === "string")
+    context.push(`upstream=${log.upstream_host}`);
   if (typeof log.filename === "string" && log.filename.length > 0) {
     const f = log.filename;
     context.push(`file=${f.length > 72 ? `${f.slice(0, 69)}…` : f}`);
@@ -73,6 +158,10 @@ function buildContextParts(log: Record<string, any>) {
   }
   if (typeof statusCode !== "undefined") context.push(`status=${statusCode}`);
   if (log.rd_torrent_id) context.push(`rd=${log.rd_torrent_id}`);
+  if (typeof log.info_hash === "string" && log.info_hash.length >= 8)
+    context.push(
+      `hash=${log.info_hash.slice(0, 12)}${log.info_hash.length > 12 ? "…" : ""}`,
+    );
   if (log.source_type) context.push(`source=${log.source_type}`);
 
   return context;
@@ -95,9 +184,28 @@ function buildMetricParts(log: Record<string, any>) {
     metrics.push(`total=${log.total_duration_ms}ms`);
   if (typeof log.queue_duration_ms === "number")
     metrics.push(`queue=${log.queue_duration_ms}ms`);
+  if (typeof log.queue_ms === "number")
+    metrics.push(`enqueue=${log.queue_ms}ms`);
+  if (typeof log.duplicate_lookup_ms === "number")
+    metrics.push(`dup_lookup=${log.duplicate_lookup_ms}ms`);
   if (typeof responseTime === "number")
     metrics.push(`response=${responseTime.toFixed(1)}ms`);
   if (typeof log.polls === "number") metrics.push(`polls=${log.polls}`);
+  if (typeof log.exists === "boolean")
+    metrics.push(`exists=${log.exists ? "yes" : "no"}`);
+  if (log.video_status) metrics.push(`video_status=${log.video_status}`);
+  if (typeof log.imdb_lookup_ms === "number")
+    metrics.push(`imdb_lookup=${log.imdb_lookup_ms}ms`);
+  if (typeof log.torrentio_ms === "number")
+    metrics.push(`torrentio=${log.torrentio_ms}ms`);
+  if (typeof log.stream_count === "number")
+    metrics.push(`streams=${log.stream_count}`);
+  if (typeof log.valid_1080p_plus === "number")
+    metrics.push(`valid_1080p+=${log.valid_1080p_plus}`);
+  if (typeof log.best_score === "number")
+    metrics.push(`best_score=${log.best_score}`);
+  if (typeof log.best_seeders === "number")
+    metrics.push(`seeders=${log.best_seeders}`);
   if (typeof log.rd_progress === "number")
     metrics.push(`rd_progress=${log.rd_progress}%`);
   if (typeof log.link_count === "number")
@@ -108,12 +216,17 @@ function buildMetricParts(log: Record<string, any>) {
     metrics.push(`streamable=${Boolean(log.streamable)}`);
   if (log.playback_source_type)
     metrics.push(`playback=${log.playback_source_type}`);
+  if (log.playback_type) metrics.push(`playback_type=${log.playback_type}`);
+  if (typeof log.range === "string" && log.range.length > 0)
+    metrics.push(`range=${log.range.slice(0, 40)}`);
 
   return metrics;
 }
 
 const prettyStream = pretty({
-  colorize: true,
+  // Disable pino-pretty's own level coloring to avoid "white on white" terminals.
+  // We still apply ANSI colors ourselves in `serviceBadge` / `serviceColoredMessage`.
+  colorize: false,
   translateTime: "SYS:standard",
   singleLine: true,
   levelFirst: true,
@@ -122,23 +235,36 @@ const prettyStream = pretty({
     "pid",
     "hostname",
     "service",
+    "svc",
     "reqId",
     "req",
     "res",
+    "watch_flow_id",
+    "tmdb_id",
+    "season_number",
+    "episode_number",
     "responseTime",
     "response_time_ms",
     "jobId",
     "videoId",
+    "existing_video_id",
+    "imdb_id",
+    "upstream_host",
     "step",
     "method",
     "path",
     "status",
+    "statusCode",
+    "url",
     "rd_torrent_id",
     "source_type",
     "duration_ms",
     "total_elapsed_ms",
     "total_duration_ms",
+    "total_ms",
     "queue_duration_ms",
+    "queue_ms",
+    "duplicate_lookup_ms",
     "polls",
     "rd_progress",
     "link_count",
@@ -147,15 +273,43 @@ const prettyStream = pretty({
     "streamable",
     "filename",
     "playback_source_type",
+    "playback_type",
+    "exists",
+    "video_status",
+    "imdb_lookup_ms",
+    "torrentio_ms",
+    "stream_count",
+    "valid_1080p_plus",
+    "best_quality",
+    "best_seeders",
+    "best_score",
+    "best_info_hash",
+    "info_hash",
+    "has_expected_key",
+    "has_provided_key",
+    "range",
+    "source",
+    "title",
+    "display_title",
     "rd_progress_pct",
     "download_poll",
+    "rd_progress_pct",
+    "selected_count",
+    "selection_mode",
+    "file_ids",
+    "reason",
   ].join(","),
   messageFormat: (log: Record<string, any>, messageKey: string) => {
-    const message = log[messageKey];
+    const message = String(log[messageKey] ?? "");
+    const svc = resolveSvc(log, message);
+    const badge = serviceBadge(svc);
+    const messageTinted = serviceColoredMessage(svc, message);
     const context = buildContextParts(log);
     const metrics = buildMetricParts(log);
 
-    return [message, ...context, ...metrics].filter(Boolean).join(" | ");
+    return [badge, messageTinted, ...context, ...metrics]
+      .filter(Boolean)
+      .join(" │ ");
   },
 });
 

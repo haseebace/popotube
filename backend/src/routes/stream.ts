@@ -1,43 +1,80 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { supabase } from '../lib/supabase';
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { supabase } from "../lib/supabase";
+import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
+
+type PlaybackSourceShape = {
+  url?: string | null;
+};
 
 export default async function (fastify: FastifyInstance) {
-  fastify.get('/api/stream/:videoId', async (request: FastifyRequest<{ Params: { videoId: string } }>, reply: FastifyReply) => {
-    try {
-      const { videoId } = request.params;
-      
-      const { data, error } = await supabase
-        .from('videos')
-        .select('playback_source')
-        .eq('id', videoId)
-        .single();
-        
-      if (error || !data || !data.playback_source) {
-        return reply.code(404).send({ error: 'Video stream not found' });
-      }
+  fastify.get(
+    "/api/stream/:videoId",
+    async (
+      request: FastifyRequest<{
+        Params: { videoId: string };
+        Querystring: { watch_flow_id?: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      try {
+        const { videoId } = request.params;
+        const watchFlowId = sanitizeWatchFlowId(request.query.watch_flow_id);
+        const rangeHeader = request.headers.range ?? null;
+        const log = fastify.log.child({
+          svc: "watch",
+          videoId,
+          ...(watchFlowId ? { watch_flow_id: watchFlowId } : {}),
+        });
 
-      const streamUrl = (data.playback_source as any).url;
-      if (!streamUrl) {
-        return reply.code(404).send({ error: 'Stream URL not available' });
-      }
+        const { data, error } = await supabase
+          .from("videos")
+          .select("playback_source")
+          .eq("id", videoId)
+          .single();
 
-      fastify.log.info(`🔃 [Proxy] Passing through stream request for video ${videoId}`);
-
-      // Forward request transparently while scrubbing the content-disposition
-      // header from Real-Debrid so the browser's native video player handles it in-line
-      return reply.from(streamUrl, {
-        rewriteRequestHeaders: (request, headers) => {
-            return headers;
-        },
-        rewriteHeaders: (headers, request) => {
-            const newHeaders = { ...headers };
-            delete newHeaders['content-disposition'];
-            return newHeaders;
+        if (error || !data || !data.playback_source) {
+          return reply.code(404).send({ error: "Video stream not found" });
         }
-      });
-    } catch (err) {
-      fastify.log.error({ err }, 'Error in stream proxy');
-      return reply.code(500).send({ error: 'Internal Server Error' });
-    }
-  });
+
+        const streamUrl = (data.playback_source as PlaybackSourceShape).url;
+        if (!streamUrl) {
+          return reply.code(404).send({ error: "Stream URL not available" });
+        }
+
+        let upstreamHost = "invalid-url";
+        try {
+          upstreamHost = new URL(streamUrl).hostname;
+        } catch {
+          /* keep label */
+        }
+
+        log.info(
+          {
+            range: rangeHeader ?? undefined,
+            upstream_host: upstreamHost,
+          },
+          "⏩ Stream proxy — piping bytes from stored playback URL to the browser (host only logged, not full signed URL).",
+        );
+
+        // Forward request transparently while scrubbing the content-disposition
+        // header from Real-Debrid so the browser's native video player handles it in-line
+        return reply.from(streamUrl, {
+          rewriteRequestHeaders: (request, headers) => {
+            return headers;
+          },
+          rewriteHeaders: (headers) => {
+            const newHeaders = { ...headers };
+            delete newHeaders["content-disposition"];
+            return newHeaders;
+          },
+        });
+      } catch (err) {
+        fastify.log.error(
+          { svc: "watch", err },
+          "Stream proxy crashed — client gets 500.",
+        );
+        return reply.code(500).send({ error: "Internal Server Error" });
+      }
+    },
+  );
 }

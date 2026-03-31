@@ -65,7 +65,7 @@ function buildReuseExistingVideoResponse(video: Record<string, any>) {
     videoId: video.id,
     jobId: video.bullmq_job_id ?? null,
     reusedExisting: true,
-    stream_url: video.stream_url ?? null,
+    stream_url: null,
     playback_source: video.playback_source ?? null,
   };
 }
@@ -346,6 +346,7 @@ export default async function (fastify: FastifyInstance) {
 
         const watchFlowId = sanitizeWatchFlowId(watch_flow_id);
         const log = fastify.log.child({
+          svc: "watch",
           tmdb_id,
           ...(watchFlowId ? { watch_flow_id: watchFlowId } : {}),
           ...(isTvEpisode
@@ -367,7 +368,7 @@ export default async function (fastify: FastifyInstance) {
               existing_video_id: existingVideo.id,
               existing_status: existingVideo.status,
             },
-            "watch: trigger | reuse_existing (before torrentio)",
+            "Poster play: title already has a video in progress or done — skipping Torrentio (early check).",
           );
 
           return reply.send(buildReuseExistingVideoResponse(existingVideo));
@@ -385,11 +386,10 @@ export default async function (fastify: FastifyInstance) {
           : await resolveImdbIdFromTmdb(tmdb_id);
         log.info(
           {
-            title,
             imdb_lookup_ms: Date.now() - imdbLookupStartedAt,
             imdb_id: imdbId,
           },
-          "watch: trigger | imdb_resolved",
+          "Resolved IMDb id from TMDB — next step is Torrentio magnet search.",
         );
 
         if (!imdbId) {
@@ -415,7 +415,7 @@ export default async function (fastify: FastifyInstance) {
               existing_video_id: videoBeforeTorrentio.id,
               existing_status: videoBeforeTorrentio.status,
             },
-            "watch: trigger | reuse_existing (race; skip torrentio)",
+            "Race: another request created the video while we looked up IMDb — skipping Torrentio.",
           );
           return reply.send(
             buildReuseExistingVideoResponse(videoBeforeTorrentio),
@@ -475,19 +475,11 @@ export default async function (fastify: FastifyInstance) {
             stream_count: candidates.length,
             valid_1080p_plus: validResults.length,
             best_info_hash: bestResult.infoHash,
-            best_title: bestResult.title,
             best_quality: bestResult.quality,
             best_seeders: bestResult.seeders,
-            best_size_bytes: bestResult.sizeBytes,
             best_score: bestResult.score,
-            best_score_reasons: bestResult.scoreReasons,
-            runner_up: rankedResults.slice(1, 3).map((r) => ({
-              info_hash: r.infoHash,
-              score: r.score,
-              seeders: r.seeders,
-            })),
           },
-          "watch: trigger | torrentio_ranked",
+          "Torrentio results scored — picked best 1080p+ release and prepared DB insert.",
         );
 
         const magnet = bestResult.magnetUri;
@@ -517,7 +509,7 @@ export default async function (fastify: FastifyInstance) {
               existing_video_id: existingVideoAfterSearch.id,
               existing_status: existingVideoAfterSearch.status,
             },
-            "watch: trigger | reuse_existing (after torrentio)",
+            "Race after Torrentio: video row now exists — returning existing job instead of duplicate insert.",
           );
 
           return reply.send(
@@ -528,10 +520,8 @@ export default async function (fastify: FastifyInstance) {
         log.info(
           {
             info_hash,
-            title,
-            display_title: bestResult.title,
           },
-          "watch: trigger | db_insert",
+          "Inserting new videos row with chosen magnet and parsed release metadata.",
         );
 
         // 3. Insert or update DB
@@ -572,13 +562,13 @@ export default async function (fastify: FastifyInstance) {
                 info_hash,
                 duplicate_lookup_ms: Date.now() - duplicateStartedAt,
               },
-              "watch: trigger | duplicate_hash",
+              "Insert hit unique constraint on info_hash — loading existing torrent row to merge or return.",
             );
 
             if (fetchError || !existingData) {
               log.error(
                 { err: fetchError },
-                "watch: trigger | duplicate_fetch_failed",
+                "Duplicate hash handling failed — could not read existing row from Supabase.",
               );
               return reply
                 .status(500)
@@ -640,7 +630,7 @@ export default async function (fastify: FastifyInstance) {
                   status: existingData.status,
                   total_ms: Date.now() - startedAt,
                 },
-                "watch: trigger | done_existing_row",
+                "Duplicate magnet: returning existing video (no new queue job).",
               );
 
               return reply.send({
@@ -651,7 +641,10 @@ export default async function (fastify: FastifyInstance) {
               });
             }
           } else {
-            log.error({ err: error }, "watch: trigger | db_insert_failed");
+            log.error(
+              { err: error },
+              "Supabase insert failed while creating video from Torrentio result.",
+            );
             return reply.status(500).send({ error: "Database error" });
           }
         } else {
@@ -659,7 +652,10 @@ export default async function (fastify: FastifyInstance) {
         }
 
         // 4. Queue the job
-        log.info({ videoId: videoRecord.id }, "watch: trigger | queue_job");
+        log.info(
+          { videoId: videoRecord.id },
+          "Enqueueing BullMQ ingestion job for new video row.",
+        );
         const queueStartedAt = Date.now();
         const job = await ingestionQueue.add(
           "download",
@@ -686,7 +682,7 @@ export default async function (fastify: FastifyInstance) {
             queue_ms: Date.now() - queueStartedAt,
             total_ms: Date.now() - startedAt,
           },
-          "watch: trigger | queued",
+          "✅ Poster-play pipeline done — ingestion worker will pull from Real-Debrid next.",
         );
 
         await supabase
@@ -704,12 +700,18 @@ export default async function (fastify: FastifyInstance) {
       } catch (err: unknown) {
         const e = err as { code?: string; name?: string };
         if (e.code === "ECONNABORTED" || e.name === "TimeoutError") {
-          fastify.log.error("watch: trigger | timeout (torrentio or tmdb)");
+          fastify.log.error(
+            { svc: "watch" },
+            "Trigger ingestion timed out waiting on TMDB or Torrentio — client should retry.",
+          );
           return reply
             .status(504)
             .send({ error: "Torrentio/TMDB request timed out" });
         }
-        fastify.log.error({ err }, "watch: trigger | exception");
+        fastify.log.error(
+          { svc: "watch", err },
+          "Trigger ingestion threw an unexpected error.",
+        );
         return reply.status(500).send({ error: "Internal server error" });
       }
     },

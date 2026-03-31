@@ -29,6 +29,7 @@ export default async function (fastify: FastifyInstance) {
       request: FastifyRequest<{ Body: IngestBody }>,
       reply: FastifyReply,
     ) => {
+      const log = fastify.log.child({ svc: "ingest" });
       try {
         const { magnet, size, title, tmdb_id, quality, codec, source } =
           request.body;
@@ -83,13 +84,13 @@ export default async function (fastify: FastifyInstance) {
             findOpts,
           );
           if (existingVideo && isReusableVideoStatus(existingVideo.status)) {
-            fastify.log.info(
+            log.info(
               {
                 tmdb_id,
                 existing_video_id: existingVideo.id,
                 existing_status: existingVideo.status,
               },
-              "Reusing existing TMDB video before ingest insert",
+              "Admin ingest skipped — this TMDB title already has a reusable video row (completed or in progress).",
             );
 
             return reply.send({
@@ -101,7 +102,7 @@ export default async function (fastify: FastifyInstance) {
               videoId: existingVideo.id,
               jobId: existingVideo.bullmq_job_id || null,
               reusedExisting: true,
-              stream_url: existingVideo.stream_url || null,
+              stream_url: null,
               playback_source: existingVideo.playback_source || null,
             });
           }
@@ -141,9 +142,9 @@ export default async function (fastify: FastifyInstance) {
               .single();
 
             if (fetchError || !existingData) {
-              fastify.log.error(
+              log.error(
                 { err: fetchError },
-                "Error fetching existing record",
+                "Duplicate magnet hash but could not re-fetch existing row — internal error.",
               );
               return reply
                 .status(500)
@@ -176,11 +177,9 @@ export default async function (fastify: FastifyInstance) {
                 .single();
 
               if (updateError || !updatedData) {
-                return reply
-                  .status(500)
-                  .send({
-                    error: "Internal error updating failed video record",
-                  });
+                return reply.status(500).send({
+                  error: "Internal error updating failed video record",
+                });
               }
               videoRecord = updatedData;
             } else {
@@ -202,8 +201,12 @@ export default async function (fastify: FastifyInstance) {
                   .eq("id", existingData.id);
               }
 
-              fastify.log.info(
-                `🔄 [Ingest] Video ${existingData.id} already exists with status: ${existingData.status}. Skipping queue addition.`,
+              log.info(
+                {
+                  videoId: existingData.id,
+                  video_status: existingData.status,
+                },
+                "Magnet already in library — not enqueueing another BullMQ job.",
               );
 
               return reply.send({
@@ -214,7 +217,10 @@ export default async function (fastify: FastifyInstance) {
               });
             }
           } else {
-            fastify.log.error({ err: error }, "Database insert error");
+            log.error(
+              { err: error },
+              "Supabase insert failed for new video row.",
+            );
             return reply.status(500).send({ error: "Database error" });
           }
         } else {
@@ -238,8 +244,9 @@ export default async function (fastify: FastifyInstance) {
           },
         );
 
-        fastify.log.info(
-          `📨 [Ingest] Successfully queued video ${videoRecord.id} into BullMQ as job ${job.id}`,
+        log.info(
+          { videoId: videoRecord.id, jobId: job.id },
+          "Video row created and BullMQ ingestion job enqueued.",
         );
 
         // Save the BullMQ job ID back to Supabase for reliable cancellation later
@@ -255,7 +262,7 @@ export default async function (fastify: FastifyInstance) {
           jobId: job.id,
         });
       } catch (err) {
-        fastify.log.error({ err }, "Exception in ingest route");
+        log.error({ err }, "Unhandled exception in legacy /api/ingest route.");
         return reply.status(500).send({ error: "Internal server error" });
       }
     },
