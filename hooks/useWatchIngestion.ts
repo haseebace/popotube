@@ -14,6 +14,7 @@ import {
  */
 const triggerIngestionLastPostAt = new Map<string, number>();
 const TRIGGER_INGESTION_DEDUP_MS = 12_000;
+const activeWatchPollLoops = new Set<string>();
 
 export type IngestMovieMeta = {
   title: string;
@@ -29,13 +30,16 @@ export function useWatchIngestion(
   message: string;
   finalPlaybackUrl: string | null;
   isProxyType: boolean;
+  isTranscodeSource: boolean;
   streamReady: boolean;
   canPlay: boolean;
+  watchFlowId: string;
 } {
   const [status, setStatus] = useState<VideoRowLike | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Checking availability…");
   const pollStartedAtRef = useRef<number>(Date.now());
+  const hlsFallbackAttemptedByVideoIdRef = useRef(new Set<string>());
 
   /** New id when `tmdbId` changes — ties polls, trigger POST, and worker logs */
   const [watchFlowId, setWatchFlowId] = useState(() => crypto.randomUUID());
@@ -53,10 +57,26 @@ export function useWatchIngestion(
   );
 
   useEffect(() => {
+    if (activeWatchPollLoops.has(watchFlowId)) {
+      return;
+    }
+    activeWatchPollLoops.add(watchFlowId);
+
     let pollTimeout: ReturnType<typeof setTimeout> | null = null;
     let isActive = true;
+    let inFlight = false;
+    let pollingStopped = false;
+
+    function stopPolling() {
+      pollingStopped = true;
+      if (pollTimeout) {
+        clearTimeout(pollTimeout);
+        pollTimeout = null;
+      }
+    }
 
     function scheduleNextPoll() {
+      if (!isActive || pollingStopped) return;
       const elapsedMs = Date.now() - pollStartedAtRef.current;
       const nextDelay = elapsedMs < 15000 ? 1000 : 2500;
       pollTimeout = setTimeout(() => {
@@ -65,7 +85,8 @@ export function useWatchIngestion(
     }
 
     async function checkStatus() {
-      if (!isActive) return;
+      if (!isActive || pollingStopped || inFlight) return;
+      inFlight = true;
 
       try {
         const statusQs = new URLSearchParams({
@@ -109,6 +130,7 @@ export function useWatchIngestion(
               };
               setMessage(err.error ?? "Could not start ingestion.");
               setLoading(false);
+              stopPolling();
               return;
             }
           }
@@ -126,16 +148,68 @@ export function useWatchIngestion(
           if (completed) {
             if (canPlayInBrowser(vid)) {
               setLoading(false);
-              setMessage("Ready to play");
+              if (vid.playback_source?.type === "mediaflow_transcode_hls") {
+                setMessage("Optimizing stream for browser playback…");
+              } else {
+                setMessage("Ready to play");
+              }
+              stopPolling();
+              return;
             } else {
-              setLoading(false);
-              setMessage(
-                "File is ready but needs an external player for this format.",
-              );
+              const videoId = vid.id;
+              if (
+                videoId &&
+                !hlsFallbackAttemptedByVideoIdRef.current.has(videoId)
+              ) {
+                hlsFallbackAttemptedByVideoIdRef.current.add(videoId);
+                console.info("[watch] force-hls fallback start", {
+                  videoId,
+                  playbackType: vid.playback_source?.type ?? null,
+                  container: vid.playback_source?.container ?? null,
+                });
+                setMessage("Optimizing stream for browser playback…");
+                const fallbackRes = await fetch("/api/public/force-hls", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ video_id: videoId }),
+                });
+                if (fallbackRes.ok) {
+                  console.info("[watch] force-hls fallback success", {
+                    videoId,
+                  });
+                  scheduleNextPoll();
+                } else {
+                  const fallbackError = await fallbackRes
+                    .json()
+                    .catch(() => ({}) as Record<string, unknown>);
+                  console.warn("[watch] force-hls fallback failed", {
+                    videoId,
+                    status: fallbackRes.status,
+                    fallbackError,
+                  });
+                  setLoading(false);
+                  setMessage(
+                    "File is ready but needs an external player for this format.",
+                  );
+                  stopPolling();
+                }
+              } else {
+                if (videoId) {
+                  console.info("[watch] force-hls fallback already attempted", {
+                    videoId,
+                  });
+                }
+                setLoading(false);
+                setMessage(
+                  "File is ready but needs an external player for this format.",
+                );
+                stopPolling();
+              }
             }
           } else if (vid.status === "failed") {
             setLoading(false);
             setMessage(vid.error_message ?? "Ingestion failed.");
+            stopPolling();
           } else {
             setMessage(
               `Processing: ${(vid.status ?? "pending").replace(/_/g, " ")}… (${vid.progress ?? 0}%)`,
@@ -147,7 +221,10 @@ export function useWatchIngestion(
         if (isActive) {
           setMessage("Something went wrong while checking status.");
           setLoading(false);
+          stopPolling();
         }
+      } finally {
+        inFlight = false;
       }
     }
 
@@ -156,12 +233,15 @@ export function useWatchIngestion(
 
     return () => {
       isActive = false;
-      if (pollTimeout) clearTimeout(pollTimeout);
+      stopPolling();
+      activeWatchPollLoops.delete(watchFlowId);
     };
   }, [tmdbId, metaKey, movie.title, movie.release_date, watchFlowId]);
 
   const finalPlaybackUrl = getFinalPlaybackUrl(status);
   const isProxyType = isProxyOrHlsSource(status);
+  const isTranscodeSource =
+    status?.playback_source?.type === "mediaflow_transcode_hls";
   const streamReady =
     !loading &&
     !!finalPlaybackUrl &&
@@ -175,7 +255,9 @@ export function useWatchIngestion(
     message,
     finalPlaybackUrl,
     isProxyType,
+    isTranscodeSource,
     streamReady,
     canPlay,
+    watchFlowId,
   };
 }

@@ -16,6 +16,7 @@ import streamRoute from "./routes/stream";
 import settingsRoute from "./routes/settings";
 import dashboardRoute from "./routes/dashboard";
 import downloadsRoute from "./routes/downloads";
+import forceHlsRoute from "./routes/force-hls";
 
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -39,15 +40,17 @@ fastify.addHook("onResponse", (request, reply, done) => {
     const started = (request as { _reqStartedAt?: number })._reqStartedAt;
     const responseTime =
       typeof started === "number" ? Date.now() - started : undefined;
+    const pathOnly = request.url.split("?")[0];
     request.log.warn(
       {
+        svc: "http",
         reqId: request.id,
         method: request.method,
-        url: request.url,
-        statusCode: reply.statusCode,
+        path: pathOnly,
+        status: reply.statusCode,
         responseTime,
       },
-      "http | error response",
+      `HTTP ${reply.statusCode} — non-success response (query string omitted from logs).`,
     );
   }
   done();
@@ -64,6 +67,7 @@ fastify.register(streamRoute);
 fastify.register(settingsRoute);
 fastify.register(dashboardRoute);
 fastify.register(downloadsRoute);
+fastify.register(forceHlsRoute);
 
 const serverAdapter = new FastifyAdapter();
 createBullBoard({
