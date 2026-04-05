@@ -39,6 +39,7 @@ export function useTvEpisodeIngestion(
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const pollStartedAtRef = useRef<number>(Date.now());
+  const hlsFallbackAttemptedByVideoIdRef = useRef(new Set<string>());
 
   const [watchFlowId, setWatchFlowId] = useState(() => crypto.randomUUID());
   const prevTargetRef = useRef(`${tvId}:${season}:${episode}`);
@@ -144,6 +145,23 @@ export function useTvEpisodeIngestion(
               setLoading(false);
               setMessage("Ready to play");
             } else {
+              const videoId = vid.id;
+              if (
+                videoId &&
+                !hlsFallbackAttemptedByVideoIdRef.current.has(videoId)
+              ) {
+                hlsFallbackAttemptedByVideoIdRef.current.add(videoId);
+                setMessage("Optimizing stream for browser playback…");
+                const fallbackRes = await fetch("/api/public/force-hls", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ video_id: videoId }),
+                });
+                if (fallbackRes.ok) {
+                  scheduleNextPoll();
+                  return;
+                }
+              }
               setLoading(false);
               setMessage(
                 "File is ready but needs an external player for this format.",

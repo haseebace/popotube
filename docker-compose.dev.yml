@@ -24,7 +24,7 @@ services:
     ports:
       - "3001:3001"
     env_file:
-      - ./.env
+      - ./backend/.env
     environment:
       JACKETT_URL: http://jackett:9117
     depends_on:

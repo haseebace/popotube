@@ -18,6 +18,8 @@ export interface ReleaseMetadata {
   quality: string;
   codec: string;
   source: string;
+  /** Parsed container when present (e.g. mkv, mp4, ts). */
+  container: string | null;
   seasonNumber: number | null;
   episodeNumber: number | null;
   releaseYear: number | null;
@@ -53,6 +55,30 @@ function decodeReleaseTitle(title: string): string {
   } catch {
     return t;
   }
+}
+
+/**
+ * MPEG transport stream as the release container (…1080p.h264.ts). Our playback path
+ * expects mkv/mp4/etc. Not telesync (HD-TS / telesync tags).
+ */
+export function isMpegTsContainerRelease(title: string): boolean {
+  const t = decodeReleaseTitle(title).toLowerCase();
+  if (!t) return false;
+  if (/\b(hd-?ts|telesync|hdcam)\b/i.test(t)) return false;
+  if (/\.m2ts\b/i.test(t)) return false;
+  if (/\.ts(?:\s*[\]\|]|$)/i.test(t)) return true;
+  if (/\.ts\.(?:ac3|dts|aac|eac3|truehd|atmos|subs?)\b/i.test(t)) return true;
+  return false;
+}
+
+/** True when parse-torrent-title reports a TS/MPEG-TS container (not m2ts). */
+export function isMpegTsParsedContainer(
+  container: string | null | undefined,
+): boolean {
+  if (!container) return false;
+  const c = container.toLowerCase().replace(/[\s._-]/g, "");
+  if (c === "m2ts") return false;
+  return c === "ts" || c === "mpegts";
 }
 
 /**
@@ -139,6 +165,9 @@ function mapParsedResult(
     quality,
     codec,
     source: normalizeSource(raw),
+    container: raw.container
+      ? String(raw.container).toLowerCase().trim()
+      : null,
     seasonNumber,
     episodeNumber,
     releaseYear,

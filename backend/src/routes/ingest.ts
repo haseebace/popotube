@@ -104,6 +104,7 @@ export default async function (fastify: FastifyInstance) {
               reusedExisting: true,
               stream_url: null,
               playback_source: existingVideo.playback_source || null,
+              mediaflow_playback: existingVideo.mediaflow_playback || null,
             });
           }
         }

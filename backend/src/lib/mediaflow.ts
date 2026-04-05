@@ -17,6 +17,16 @@ export type PlaybackSource = {
   source_type: "real_debrid" | "mediaflow";
 };
 
+/** Persisted JSON in `videos.mediaflow_playback` — HLS transcode only (not RD URL). */
+export type MediaflowPlaybackColumn = {
+  type: "mediaflow_transcode_hls";
+  url: string;
+  codec: string;
+  container: string;
+  mime_type: string;
+  source_type: "mediaflow";
+};
+
 export type MediaflowProbeResult = {
   enabled: boolean;
   baseUrl: string | null;
@@ -130,6 +140,54 @@ export function assertAllowedMediaflowUpstream(url: string): void {
   if (!allowed) {
     throw new Error(`Upstream host is not allowed: ${host}`);
   }
+}
+
+/**
+ * HLS transcode manifest only — for containers that are not browser-safe (e.g. mkv).
+ * Browser-safe files (mp4/webm) should use direct Real-Debrid + `/api/proxy/stream/:id` instead.
+ */
+export async function buildMediaflowTranscodeHls(params: {
+  upstreamUrl: string;
+  container: string;
+  codec: string;
+}): Promise<MediaflowPlaybackColumn> {
+  const { upstreamUrl, container, codec } = params;
+  if (!isValidHttpUrl(upstreamUrl)) {
+    throw new Error("Invalid upstream URL for MediaFlow");
+  }
+  if (!isMediaflowEnabled()) {
+    throw new Error("MediaFlow is disabled or not configured");
+  }
+  assertAllowedMediaflowUpstream(upstreamUrl);
+
+  const url = await generateEncodedUrl(
+    "/proxy/transcode/playlist.m3u8",
+    upstreamUrl,
+    undefined,
+  );
+
+  return {
+    type: "mediaflow_transcode_hls",
+    url,
+    codec: codec || "Unknown",
+    container,
+    mime_type: "application/x-mpegURL",
+    source_type: "mediaflow",
+  };
+}
+
+export function playbackSourceToMediaflowColumn(
+  p: PlaybackSource,
+): MediaflowPlaybackColumn | null {
+  if (p.type !== "mediaflow_transcode_hls") return null;
+  return {
+    type: "mediaflow_transcode_hls",
+    url: p.url,
+    codec: p.codec,
+    container: p.container,
+    mime_type: p.mime_type,
+    source_type: "mediaflow",
+  };
 }
 
 export async function buildMediaflowPlaybackSource(params: {

@@ -6,11 +6,13 @@ import type { Logger } from "pino";
 import { logger } from "../lib/logger";
 import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
 import {
-  buildMediaflowPlaybackSource,
+  buildMediaflowTranscodeHls,
   isContainerBrowserSafe,
   isMediaflowEnabled,
+  type MediaflowPlaybackColumn,
   type PlaybackSource,
 } from "../lib/mediaflow";
+import { parseReleaseMetadata } from "../lib/release-metadata";
 
 export const INGESTION_QUEUE_NAME = "ingestionQueue";
 const RD_CONVERSION_POLL_MS = 750;
@@ -305,6 +307,24 @@ export const ingestionWorker = new Worker(
         filesize: unrestrictData.filesize,
       });
 
+      // Codec on the row comes from Torrentio title at insert; RD filename is authoritative when that was empty/wrong.
+      const filenameForParse =
+        unrestrictData.filename.replace(/\.[^/.]+$/, "") ||
+        unrestrictData.filename;
+      const existingCodec = String(videoRecord.codec ?? "").trim();
+      let resolvedCodec: string | null =
+        existingCodec && existingCodec.toLowerCase() !== "unknown"
+          ? existingCodec
+          : null;
+      if (!resolvedCodec) {
+        const fromFile = await parseReleaseMetadata(filenameForParse);
+        if (fromFile.codec !== "unknown") resolvedCodec = fromFile.codec;
+      }
+      const codecLabel =
+        resolvedCodec && resolvedCodec !== "unknown"
+          ? resolvedCodec
+          : "Unknown";
+
       // Mark the title as playback-ready (MediaFlow preferred; direct RD fallback)
       const containerExt =
         unrestrictData.filename.split(".").pop()?.toLowerCase() || "unknown";
@@ -312,21 +332,20 @@ export const ingestionWorker = new Worker(
       const directPlaybackSource: PlaybackSource = {
         type: "direct",
         url: fullDownloadUrl,
-        codec: videoRecord.codec || "Unknown",
+        codec: codecLabel,
         container: containerExt,
         mime_type: unrestrictData.mimeType || "video/mp4",
         is_streamable: isStreamable,
         source_type: "real_debrid",
       };
 
-      let selectedPlaybackSource: PlaybackSource = directPlaybackSource;
-      if (isMediaflowEnabled()) {
+      let mediaflowPlayback: MediaflowPlaybackColumn | null = null;
+      if (!isStreamable && isMediaflowEnabled()) {
         try {
-          selectedPlaybackSource = await buildMediaflowPlaybackSource({
+          mediaflowPlayback = await buildMediaflowTranscodeHls({
             upstreamUrl: fullDownloadUrl,
             container: containerExt,
-            codec: videoRecord.codec || "Unknown",
-            filename: unrestrictData.filename,
+            codec: codecLabel,
           });
         } catch (mediaflowErr) {
           log.warn(
@@ -336,23 +355,23 @@ export const ingestionWorker = new Worker(
               videoId,
               source_type: "mediaflow",
             },
-            "⚠️ Mediaflow URL build failed — falling back to direct Real-Debrid URL in the database (browser may still play if format allows).",
+            "⚠️ MediaFlow HLS URL build failed — playback_source still holds Real-Debrid; browser may need external player.",
           );
         }
       }
 
-      const playbackExplanation =
-        selectedPlaybackSource.type === "direct"
-          ? "✅ Saved playback: direct Real-Debrid HTTPS URL — browser native <video>, no Mediaflow in the path."
-          : selectedPlaybackSource.type === "mediaflow_stream"
-            ? "✅ Saved playback: Mediaflow /proxy/stream — container is browser-safe (e.g. .mp4/.webm), so Mediaflow proxies the file without live HLS transcoding."
-            : "✅ Saved playback: Mediaflow HLS transcode — .mkv or similar; player uses playlist.m3u8 and on-the-fly fMP4 segments.";
+      const playbackExplanation = mediaflowPlayback
+        ? "✅ Saved Real-Debrid URL in playback_source; MediaFlow HLS manifest in mediaflow_playback (transcode)."
+        : isStreamable
+          ? "✅ Saved playback: Real-Debrid + app stream proxy — one egress IP to RD; browser uses /api/proxy/stream."
+          : "✅ Saved playback: Real-Debrid only (no MediaFlow HLS) — may need external player for this container.";
 
       log.info(
         {
           jobId: job.id,
           videoId,
-          playback_source_type: selectedPlaybackSource.type,
+          playback_source_type: directPlaybackSource.type,
+          mediaflow_playback: Boolean(mediaflowPlayback),
           container: containerExt,
           filename: unrestrictData.filename,
           streamable: isStreamable,
@@ -366,14 +385,18 @@ export const ingestionWorker = new Worker(
           status: "completed",
           progress: 100,
           stream_url: fullDownloadUrl,
-          playback_source: selectedPlaybackSource,
+          playback_source: directPlaybackSource,
+          mediaflow_playback: mediaflowPlayback,
+          ...(resolvedCodec && resolvedCodec !== "unknown"
+            ? { codec: resolvedCodec }
+            : {}),
         })
         .eq("id", videoId);
 
       timing.total({
         rd_torrent_id: rdTorrentId,
-        playback_source_type: selectedPlaybackSource.type,
-        source_type: selectedPlaybackSource.source_type,
+        playback_source_type: directPlaybackSource.type,
+        source_type: directPlaybackSource.source_type,
         filename: unrestrictData.filename,
         filesize: unrestrictData.filesize,
       });
@@ -382,7 +405,7 @@ export const ingestionWorker = new Worker(
         status: "success",
         videoId,
         stream_url: fullDownloadUrl,
-        playback_source: selectedPlaybackSource,
+        playback_source: directPlaybackSource,
       };
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string };

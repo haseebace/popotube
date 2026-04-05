@@ -156,6 +156,14 @@ function scoreRdFile(file: RDFile, expectedTitle?: string): number {
     score -= 500;
   }
 
+  // Prefer mkv/mp4/… over raw .ts transport streams (same rationale as Torrentio filter).
+  if (lowerPath.endsWith(".ts") && !lowerPath.endsWith(".m2ts")) {
+    score -= 450;
+  }
+  if (/(?:^|\/)\d{3,6}\.ts$/i.test(lowerPath)) {
+    score -= 700;
+  }
+
   if (file.bytes >= 500 * 1024 * 1024) score += 200;
   else if (file.bytes >= 200 * 1024 * 1024) score += 100;
   else if (file.bytes <= 50 * 1024 * 1024) score -= 300;

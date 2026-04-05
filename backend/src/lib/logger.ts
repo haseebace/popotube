@@ -202,6 +202,23 @@ function buildMetricParts(log: Record<string, any>) {
     metrics.push(`streams=${log.stream_count}`);
   if (typeof log.valid_1080p_plus === "number")
     metrics.push(`valid_1080p+=${log.valid_1080p_plus}`);
+  if (typeof log.ti_eligible === "number")
+    metrics.push(`ti_elig=${log.ti_eligible}`);
+  if (typeof log.ti_skipped_total === "number")
+    metrics.push(
+      `ti_skip=${log.ti_skipped_total}(m:${log.ti_sk_magnet ?? 0}+r:${log.ti_sk_res ?? 0}+ts:${log.ti_sk_ts ?? 0})`,
+    );
+  if (typeof log.ti_pick_hash === "string" && log.ti_pick_hash.length > 0)
+    metrics.push(`ti_pick=${log.ti_pick_hash}`);
+  if (typeof log.ti_pick_score === "number")
+    metrics.push(`ti_score=${log.ti_pick_score}`);
+  if (
+    typeof log.torrentio_pick_summary === "string" &&
+    log.torrentio_pick_summary.length > 0
+  ) {
+    const s = log.torrentio_pick_summary;
+    metrics.push(s.length > 380 ? `${s.slice(0, 377)}…` : s);
+  }
   if (typeof log.best_score === "number")
     metrics.push(`best_score=${log.best_score}`);
   if (typeof log.best_seeders === "number")
@@ -284,6 +301,17 @@ const prettyStream = pretty({
     "best_seeders",
     "best_score",
     "best_info_hash",
+    "torrentio_stream_total",
+    "torrentio_skipped_total",
+    "torrentio_eligible",
+    "torrentio_pick_summary",
+    "ti_skipped_total",
+    "ti_eligible",
+    "ti_sk_magnet",
+    "ti_sk_res",
+    "ti_sk_ts",
+    "ti_pick_hash",
+    "ti_pick_score",
     "info_hash",
     "has_expected_key",
     "has_provided_key",

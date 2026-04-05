@@ -74,7 +74,9 @@ export default function WatchPageShell({
 
   const handlePlaybackError = useCallback(
     async (detail?: { code: number | null }) => {
-      const sourceType = ingest.status?.playback_source?.type;
+      const sourceType =
+        ingest.status?.mediaflow_playback?.type ??
+        ingest.status?.playback_source?.type;
       const code = detail?.code ?? null;
 
       // Mediaflow transcode often passes through 5.1 AAC; Chrome MSE frequently throws
@@ -107,9 +109,11 @@ export default function WatchPageShell({
           throw new Error("Could not switch playback source");
         }
         const payload = (await res.json()) as {
+          mediaflow_playback?: { url?: string };
           playback_source?: { url?: string };
         };
-        const newUrl = payload.playback_source?.url;
+        const newUrl =
+          payload.mediaflow_playback?.url ?? payload.playback_source?.url;
         if (newUrl) {
           setOverridePlaybackUrl(newUrl);
           toast.message("Playback source updated", {
@@ -125,7 +129,11 @@ export default function WatchPageShell({
         });
       }
     },
-    [ingest.status?.id, ingest.status?.playback_source?.type],
+    [
+      ingest.status?.id,
+      ingest.status?.mediaflow_playback?.type,
+      ingest.status?.playback_source?.type,
+    ],
   );
 
   const heroFooter = useMemo(() => {

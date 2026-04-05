@@ -3,6 +3,8 @@ import axios from "axios";
 import { supabase } from "../lib/supabase";
 import { ingestionQueue } from "../queue/ingestion";
 import {
+  isMpegTsContainerRelease,
+  isMpegTsParsedContainer,
   mergeVideoParseColumns,
   parseReleaseMetadata,
   releaseMetadataToVideoColumns,
@@ -41,6 +43,8 @@ interface TorrentioCandidate {
   quality: string;
   codec: string;
   releaseSource: string;
+  /** From parse-torrent-title when available */
+  container: string | null;
   details: string;
 }
 
@@ -79,6 +83,7 @@ function buildReuseExistingVideoResponse(video: Record<string, any>) {
     reusedExisting: true,
     stream_url: null,
     playback_source: video.playback_source ?? null,
+    mediaflow_playback: video.mediaflow_playback ?? null,
   };
 }
 
@@ -183,6 +188,14 @@ function scoreTorrentResult(
   } else if (seeders >= 25) {
     score += 25;
     reasons.push("healthy_seeders");
+  }
+
+  if (
+    isMpegTsParsedContainer(result.container) ||
+    isMpegTsContainerRelease(result.title || "")
+  ) {
+    score -= 8000;
+    reasons.push("reject_mpeg_ts_container");
   }
 
   return {
@@ -326,6 +339,7 @@ async function fetchTorrentioCandidates(
         quality: metadata.quality,
         codec: metadata.codec,
         releaseSource: metadata.source,
+        container: metadata.container,
         details: infoLine,
       };
     }),
@@ -345,6 +359,143 @@ function compareScoredCandidates(
   }
 
   return b.sizeBytes - a.sizeBytes;
+}
+
+const TORRENTIO_SKIP_SAMPLE_CAP = 12;
+const TORRENTIO_RANK_LOG_CAP = 8;
+const TORRENTIO_TITLE_PREVIEW = 120;
+
+type TorrentioSkipReason =
+  | "no_magnet_or_hash"
+  | "below_1080p"
+  | "mpeg_ts_container";
+
+function torrentioEligibilitySkip(
+  c: TorrentioCandidate,
+): TorrentioSkipReason | null {
+  if (!c.magnetUri || !c.infoHash) return "no_magnet_or_hash";
+  if (c.quality !== "1080p" && c.quality !== "1080i" && c.quality !== "2160p") {
+    return "below_1080p";
+  }
+  if (
+    isMpegTsParsedContainer(c.container) ||
+    isMpegTsContainerRelease(c.title || "")
+  ) {
+    return "mpeg_ts_container";
+  }
+  return null;
+}
+
+function truncateTorrentioTitle(text: string, max = TORRENTIO_TITLE_PREVIEW) {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function analyzeTorrentioSkips(candidates: TorrentioCandidate[]) {
+  const skipped = {
+    no_magnet_or_hash: 0,
+    below_1080p: 0,
+    mpeg_ts_container: 0,
+  };
+  const skip_samples: Array<{
+    reason: TorrentioSkipReason;
+    info_hash_prefix: string | null;
+    title_preview: string;
+    quality: string;
+    container: string | null;
+  }> = [];
+
+  for (const c of candidates) {
+    const reason = torrentioEligibilitySkip(c);
+    if (reason) {
+      skipped[reason]++;
+      if (skip_samples.length < TORRENTIO_SKIP_SAMPLE_CAP) {
+        const h = c.infoHash || "";
+        skip_samples.push({
+          reason,
+          info_hash_prefix: h.length >= 8 ? h.slice(0, 8) : h || null,
+          title_preview: truncateTorrentioTitle(c.title || ""),
+          quality: c.quality,
+          container: c.container,
+        });
+      }
+    }
+  }
+
+  const skipped_total =
+    skipped.no_magnet_or_hash + skipped.below_1080p + skipped.mpeg_ts_container;
+  const eligible_count = candidates.length - skipped_total;
+
+  return { skipped, skip_samples, eligible_count, skipped_total };
+}
+
+function buildTorrentioRankedPreview(ranked: ScoredTorrentioCandidate[]) {
+  return ranked.slice(0, TORRENTIO_RANK_LOG_CAP).map((r, i) => ({
+    rank: i + 1,
+    info_hash: r.infoHash,
+    score: r.score,
+    score_reasons: r.scoreReasons,
+    quality: r.quality,
+    codec: r.codec,
+    container: r.container,
+    release_source: r.releaseSource,
+    seeders: r.seeders,
+    size_bytes: r.sizeBytes,
+    torrentio_indexer: r.source,
+    title_preview: truncateTorrentioTitle(r.title || "", 160),
+  }));
+}
+
+function buildTorrentioPickedLog(picked: ScoredTorrentioCandidate) {
+  return {
+    info_hash: picked.infoHash,
+    score: picked.score,
+    score_reasons: picked.scoreReasons,
+    quality: picked.quality,
+    codec: picked.codec,
+    container: picked.container,
+    release_source: picked.releaseSource,
+    seeders: picked.seeders,
+    size_bytes: picked.sizeBytes,
+    torrentio_indexer: picked.source,
+    details_line: picked.details || null,
+    title_preview: truncateTorrentioTitle(picked.title || "", 200),
+  };
+}
+
+/** One line for pino-pretty (nested objects are hidden from the formatted line). */
+function formatTorrentioPickSummaryLine(
+  streamTotal: number,
+  analysis: ReturnType<typeof analyzeTorrentioSkips>,
+  ranked: ScoredTorrentioCandidate[],
+  picked?: ScoredTorrentioCandidate,
+) {
+  const { skipped, eligible_count, skipped_total } = analysis;
+  const parts = [
+    `streams=${streamTotal}`,
+    `eligible=${eligible_count}`,
+    `skipped=${skipped_total}(noMag:${skipped.no_magnet_or_hash}|res:${skipped.below_1080p}|ts:${skipped.mpeg_ts_container})`,
+  ];
+  if (ranked.length > 0) {
+    parts.push(
+      `top=${ranked
+        .slice(0, 3)
+        .map(
+          (r, i) =>
+            `#${i + 1}:${(r.infoHash || "").slice(0, 8)}@${r.score.toFixed(0)}`,
+        )
+        .join(" ")}`,
+    );
+  }
+  if (picked) {
+    const reasons = picked.scoreReasons.slice(0, 8).join(",");
+    const more = picked.scoreReasons.length > 8 ? "…" : "";
+    parts.push(
+      `picked=${(picked.infoHash || "").slice(0, 12)}@${picked.score.toFixed(0)} [${reasons}${more}]`,
+    );
+  }
+  return parts.join(" │ ");
 }
 
 export default async function (fastify: FastifyInstance) {
@@ -473,20 +624,42 @@ export default async function (fastify: FastifyInstance) {
               body.episode_number,
             )
           : await fetchTorrentioCandidates(imdbId, "movie");
+        const skipAnalysis = analyzeTorrentioSkips(candidates);
         const validResults = candidates.filter(
-          (candidate) =>
-            candidate.magnetUri &&
-            candidate.infoHash &&
-            (candidate.quality === "1080p" ||
-              candidate.quality === "1080i" ||
-              candidate.quality === "2160p"),
+          (c) => torrentioEligibilitySkip(c) === null,
         );
 
         if (validResults.length === 0) {
+          const had1080pButTsOnly = candidates.some(
+            (c) => torrentioEligibilitySkip(c) === "mpeg_ts_container",
+          );
+          const torrentioMsEmpty = Date.now() - torrentioStartedAt;
+          log.warn(
+            {
+              imdb_id: imdbId,
+              torrentio_ms: torrentioMsEmpty,
+              torrentio_stream_total: candidates.length,
+              torrentio_skip_breakdown: skipAnalysis.skipped,
+              torrentio_skipped_total: skipAnalysis.skipped_total,
+              torrentio_eligible: 0,
+              torrentio_skip_samples: skipAnalysis.skip_samples,
+              torrentio_had_ts_only_1080p_hint: had1080pButTsOnly,
+              torrentio_pick_summary: formatTorrentioPickSummaryLine(
+                candidates.length,
+                skipAnalysis,
+                [],
+              ),
+            },
+            "Torrentio: no eligible 1080p+ release after filters (see torrentio_skip_* fields).",
+          );
           return reply.status(404).send({
             error: isTvEpisode
-              ? "No 1080p-or-higher Torrentio streams were found for this episode"
-              : "No 1080p-or-higher Torrentio streams were found for this movie",
+              ? had1080pButTsOnly
+                ? "Only MPEG-TS (.ts) releases were found for this episode; this app does not use that container. Try another source or a mkv/mp4 release."
+                : "No 1080p-or-higher Torrentio streams were found for this episode"
+              : had1080pButTsOnly
+                ? "Only MPEG-TS (.ts) releases were found for this movie; this app does not use that container. Try another source or a mkv/mp4 release."
+                : "No 1080p-or-higher Torrentio streams were found for this movie",
           });
         }
 
@@ -510,18 +683,40 @@ export default async function (fastify: FastifyInstance) {
         const videoParseCols = releaseMetadataToVideoColumns(parsedRelease);
 
         const torrentioMs = Date.now() - torrentioStartedAt;
+        const rankedPreview = buildTorrentioRankedPreview(rankedResults);
+        const pickedLog = buildTorrentioPickedLog(bestResult);
         log.info(
           {
             imdb_id: imdbId,
             torrentio_ms: torrentioMs,
             stream_count: candidates.length,
             valid_1080p_plus: validResults.length,
+            torrentio_stream_total: candidates.length,
+            torrentio_skip_breakdown: skipAnalysis.skipped,
+            torrentio_skipped_total: skipAnalysis.skipped_total,
+            torrentio_eligible: validResults.length,
+            torrentio_skip_samples: skipAnalysis.skip_samples,
+            torrentio_ranked_preview: rankedPreview,
+            torrentio_picked: pickedLog,
             best_info_hash: bestResult.infoHash,
             best_quality: bestResult.quality,
             best_seeders: bestResult.seeders,
             best_score: bestResult.score,
+            torrentio_pick_summary: formatTorrentioPickSummaryLine(
+              candidates.length,
+              skipAnalysis,
+              rankedResults,
+              bestResult,
+            ),
+            ti_skipped_total: skipAnalysis.skipped_total,
+            ti_eligible: validResults.length,
+            ti_sk_magnet: skipAnalysis.skipped.no_magnet_or_hash,
+            ti_sk_res: skipAnalysis.skipped.below_1080p,
+            ti_sk_ts: skipAnalysis.skipped.mpeg_ts_container,
+            ti_pick_hash: bestResult.infoHash?.slice(0, 12) ?? null,
+            ti_pick_score: bestResult.score,
           },
-          "Torrentio results scored — picked best 1080p+ release and prepared DB insert.",
+          "Torrentio pick: scored eligible streams, chose winner (torrentio_ranked_preview / torrentio_picked / torrentio_pick_summary).",
         );
 
         const magnet = bestResult.magnetUri;

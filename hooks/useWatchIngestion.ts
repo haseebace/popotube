@@ -148,7 +148,10 @@ export function useWatchIngestion(
           if (completed) {
             if (canPlayInBrowser(vid)) {
               setLoading(false);
-              if (vid.playback_source?.type === "mediaflow_transcode_hls") {
+              const isHlsTranscode =
+                vid.mediaflow_playback?.type === "mediaflow_transcode_hls" ||
+                vid.playback_source?.type === "mediaflow_transcode_hls";
+              if (isHlsTranscode) {
                 setMessage("Optimizing stream for browser playback…");
               } else {
                 setMessage("Ready to play");
@@ -164,7 +167,10 @@ export function useWatchIngestion(
                 hlsFallbackAttemptedByVideoIdRef.current.add(videoId);
                 console.info("[watch] force-hls fallback start", {
                   videoId,
-                  playbackType: vid.playback_source?.type ?? null,
+                  playbackType:
+                    vid.mediaflow_playback?.type ??
+                    vid.playback_source?.type ??
+                    null,
                   container: vid.playback_source?.container ?? null,
                 });
                 setMessage("Optimizing stream for browser playback…");
@@ -241,6 +247,7 @@ export function useWatchIngestion(
   const finalPlaybackUrl = getFinalPlaybackUrl(status);
   const isProxyType = isProxyOrHlsSource(status);
   const isTranscodeSource =
+    status?.mediaflow_playback?.type === "mediaflow_transcode_hls" ||
     status?.playback_source?.type === "mediaflow_transcode_hls";
   const streamReady =
     !loading &&

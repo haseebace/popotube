@@ -19,6 +19,7 @@ function getVideoPriority(video: Record<string, any>): number {
 
   if (video.status === "completed") {
     if (video.playback_source) priority += 120;
+    if (video.mediaflow_playback) priority += 100;
     if (video.stream_url) priority += 80;
   }
 

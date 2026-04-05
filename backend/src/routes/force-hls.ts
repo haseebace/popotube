@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { supabase } from "../lib/supabase";
 import {
-  buildMediaflowPlaybackSource,
+  buildMediaflowTranscodeHls,
   isMediaflowEnabled,
 } from "../lib/mediaflow";
 
@@ -16,14 +16,6 @@ function getInternalKey(): string {
     process.env.MEDIAFLOW_API_PASSWORD ||
     ""
   ).trim();
-}
-
-function getContainerHint(value?: string): string {
-  if (!value) return "unknown";
-  const clean = value.split("?")[0];
-  const maybeExt = clean.split(".").pop()?.toLowerCase();
-  if (!maybeExt) return "unknown";
-  return maybeExt;
 }
 
 export default async function (fastify: FastifyInstance) {
@@ -103,45 +95,48 @@ export default async function (fastify: FastifyInstance) {
           .send({ error: "No upstream stream URL available" });
       }
 
-      const playback = await buildMediaflowPlaybackSource({
+      const pbContainer = (
+        data.playback_source as { container?: string } | null
+      )?.container;
+      const container =
+        pbContainer && pbContainer !== "unknown" ? pbContainer : "mkv";
+
+      const playback = await buildMediaflowTranscodeHls({
         upstreamUrl,
-        container: "mkv",
+        container,
         codec:
           data.codec ||
           (data.playback_source as { codec?: string } | null)?.codec ||
           "Unknown",
-        filename: `video.${getContainerHint(
-          (data.playback_source as { container?: string } | null)?.container,
-        )}`,
       });
 
       const { error: updateErr } = await supabase
         .from("videos")
         .update({
-          playback_source: { ...playback, type: "mediaflow_transcode_hls" },
+          mediaflow_playback: playback,
         })
         .eq("id", videoId);
 
       if (updateErr) {
         fastify.log.error(
           { svc: "watch", err: updateErr, videoId },
-          "Force-HLS — Supabase update of playback_source failed.",
+          "Force-HLS — Supabase update of mediaflow_playback failed.",
         );
         return reply
           .status(500)
-          .send({ error: "Failed to update playback source" });
+          .send({ error: "Failed to update MediaFlow playback" });
       }
       fastify.log.info(
         { svc: "watch", videoId, playback_type: "mediaflow_transcode_hls" },
-        "Force-HLS done — playback_source is now Mediaflow HLS transcode; client should reload manifest.",
+        "Force-HLS done — mediaflow_playback holds HLS manifest; Real-Debrid URL unchanged in playback_source.",
       );
 
       return reply.send({
         success: true,
-        playback_source: {
-          type: "mediaflow_transcode_hls",
+        mediaflow_playback: {
+          type: playback.type,
           url: playback.url,
-          mime_type: "application/x-mpegURL",
+          mime_type: playback.mime_type,
         },
       });
     },

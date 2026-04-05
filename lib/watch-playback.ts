@@ -1,6 +1,13 @@
 /**
- * Derive browser playback URL and transport hints from a videos row + playback_source.
+ * Derive browser playback URL and transport hints from a videos row + playback_source + mediaflow_playback.
  */
+
+export type MediaflowPlaybackRow = {
+  type?: string;
+  url?: string | null;
+  mime_type?: string;
+  container?: string;
+};
 
 export type VideoRowLike = {
   id?: string;
@@ -8,6 +15,7 @@ export type VideoRowLike = {
   progress?: number;
   error_message?: string | null;
   stream_url?: string | null;
+  mediaflow_playback?: MediaflowPlaybackRow | null;
   playback_source?: {
     url?: string | null;
     type?: string;
@@ -16,24 +24,56 @@ export type VideoRowLike = {
   } | null;
 };
 
+function legacyHlsUrl(status: VideoRowLike | null): string | null {
+  const t = status?.playback_source?.type;
+  if (t === "mediaflow_transcode_hls" && status?.playback_source?.url) {
+    return status.playback_source.url;
+  }
+  return null;
+}
+
 export function getFinalPlaybackUrl(
   status: VideoRowLike | null,
 ): string | null {
   if (!status) return null;
-  let url = status.playback_source?.url || status.stream_url || null;
-  if (status.playback_source?.type === "direct" && status.id) {
-    url = `/api/proxy/stream/${status.id}`;
+  const mf = status.mediaflow_playback;
+  if (mf?.url && mf.type === "mediaflow_transcode_hls") {
+    return mf.url;
   }
-  return url || null;
+  const legacy = legacyHlsUrl(status);
+  if (legacy) return legacy;
+  if (status.playback_source?.type === "direct" && status.id) {
+    return `/api/proxy/stream/${status.id}`;
+  }
+  return status.playback_source?.url || status.stream_url || null;
 }
 
 export function isProxyOrHlsSource(status: VideoRowLike | null): boolean {
+  if (!status) return false;
+  if (
+    status.mediaflow_playback?.url &&
+    status.mediaflow_playback?.type === "mediaflow_transcode_hls"
+  ) {
+    return true;
+  }
   const t = status?.playback_source?.type;
-  return t === "proxy" || t === "mediaflow" || t === "mediaflow_transcode_hls";
+  return (
+    t === "proxy" ||
+    t === "mediaflow" ||
+    t === "mediaflow_transcode_hls" ||
+    t === "mediaflow_stream"
+  );
 }
 
 export function canPlayInBrowser(status: VideoRowLike | null): boolean {
   if (!status) return false;
+  if (
+    status.mediaflow_playback?.type === "mediaflow_transcode_hls" &&
+    status.mediaflow_playback?.url
+  ) {
+    return true;
+  }
+  if (legacyHlsUrl(status)) return true;
   const proxy = isProxyOrHlsSource(status);
   if (status.playback_source?.is_streamable === false && !proxy) return false;
   return true;
