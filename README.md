@@ -65,7 +65,7 @@ User clicks "Watch" on a movie
 Use them as source-of-truth for variable ownership:
 
 - Frontend (Vercel): `BACKEND_URL`, `TMDB_*`, `NEXT_PUBLIC_SUPABASE_*`, optional `NEXT_PUBLIC_*` flags.
-- Backend (VPS/local): `REDIS_URL`, `SUPABASE_*`, `REAL_DEBRID_API_KEY`, `JACKETT_*`, `MEDIAFLOW_*`, `BACKEND_INTERNAL_API_KEY`.
+- Backend (VPS/local): `REDIS_URL`, `SUPABASE_*`, `REAL_DEBRID_API_KEY`, `JACKETT_*`, `TMDB_*`.
 
 ### Local Development (Host Frontend + Dockerized Backend/Jackett)
 
