@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -146,7 +147,7 @@ function ResultRow({
     });
 
     try {
-      const res = await fetch("/api/backend/ingest", {
+      const res = await fetch(publicBackendApiUrl("/api/ingest"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -372,7 +373,7 @@ export default function HomePage() {
 
     try {
       const res = await fetch(
-        `/api/search?q=${encodeURIComponent(activeQuery)}`,
+        publicBackendApiUrl(`/api/search?q=${encodeURIComponent(activeQuery)}`),
       );
       const data = await res.json();
 

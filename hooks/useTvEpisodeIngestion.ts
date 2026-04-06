@@ -7,6 +7,7 @@ import {
   getFinalPlaybackUrl,
   isProxyOrHlsSource,
 } from "@/lib/watch-playback";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 const triggerIngestionLastPostAt = new Map<string, number>();
 const TRIGGER_INGESTION_DEDUP_MS = 12_000;
@@ -34,12 +35,13 @@ export function useTvEpisodeIngestion(
   isProxyType: boolean;
   streamReady: boolean;
   canPlay: boolean;
+  watchFlowId: string;
 } {
   const [status, setStatus] = useState<VideoRowLike | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const pollStartedAtRef = useRef<number>(Date.now());
-  const hlsFallbackAttemptedByVideoIdRef = useRef(new Set<string>());
+  const unplayableCompletedPollsRef = useRef(0);
 
   const [watchFlowId, setWatchFlowId] = useState(() => crypto.randomUUID());
   const prevTargetRef = useRef(`${tvId}:${season}:${episode}`);
@@ -88,7 +90,7 @@ export function useTvEpisodeIngestion(
           episode: String(episode),
         });
         const checkRes = await fetch(
-          `/api/public/movie-status?${statusQs.toString()}`,
+          publicBackendApiUrl(`/api/movie-status?${statusQs.toString()}`),
         );
         if (!checkRes.ok) throw new Error("Failed to check status");
         const checkData = (await checkRes.json()) as {
@@ -105,19 +107,22 @@ export function useTvEpisodeIngestion(
 
           if (!skipDuplicatePost) {
             triggerIngestionLastPostAt.set(key, now);
-            const triggerRes = await fetch("/api/public/trigger-ingestion", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                tmdb_id: parseInt(tvId, 10),
-                title: meta.title,
-                year,
-                watch_flow_id: watchFlowId,
-                media_type: "tv",
-                season_number: season,
-                episode_number: episode,
-              }),
-            });
+            const triggerRes = await fetch(
+              publicBackendApiUrl("/api/trigger-ingestion"),
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  tmdb_id: parseInt(tvId, 10),
+                  title: meta.title,
+                  year,
+                  watch_flow_id: watchFlowId,
+                  media_type: "tv",
+                  season_number: season,
+                  episode_number: episode,
+                }),
+              },
+            );
 
             if (!triggerRes.ok) {
               triggerIngestionLastPostAt.delete(key);
@@ -142,35 +147,31 @@ export function useTvEpisodeIngestion(
 
           if (completed) {
             if (canPlayInBrowser(vid)) {
+              unplayableCompletedPollsRef.current = 0;
               setLoading(false);
-              setMessage("Ready to play");
-            } else {
-              const videoId = vid.id;
-              if (
-                videoId &&
-                !hlsFallbackAttemptedByVideoIdRef.current.has(videoId)
-              ) {
-                hlsFallbackAttemptedByVideoIdRef.current.add(videoId);
-                setMessage("Optimizing stream for browser playback…");
-                const fallbackRes = await fetch("/api/public/force-hls", {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ video_id: videoId }),
-                });
-                if (fallbackRes.ok) {
-                  scheduleNextPoll();
-                  return;
-                }
-              }
-              setLoading(false);
+              const hls = url && /\.m3u8(\?|$)/i.test(url);
               setMessage(
-                "File is ready but needs an external player for this format.",
+                hls
+                  ? "Optimizing stream for browser playback…"
+                  : "Ready to play",
               );
+            } else {
+              unplayableCompletedPollsRef.current += 1;
+              if (unplayableCompletedPollsRef.current > 2) {
+                setLoading(false);
+                setMessage(
+                  "File is ready but needs an external player for this format.",
+                );
+              } else {
+                setMessage("Checking playback options…");
+                scheduleNextPoll();
+              }
             }
           } else if (vid.status === "failed") {
             setLoading(false);
             setMessage(vid.error_message ?? "Ingestion failed.");
           } else {
+            unplayableCompletedPollsRef.current = 0;
             setMessage(
               `Processing: ${(vid.status ?? "pending").replace(/_/g, " ")}… (${vid.progress ?? 0}%)`,
             );
@@ -213,5 +214,6 @@ export function useTvEpisodeIngestion(
     isProxyType,
     streamReady,
     canPlay,
+    watchFlowId,
   };
 }

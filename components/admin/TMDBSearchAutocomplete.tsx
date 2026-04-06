@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 interface TMDBMovie {
   id: number;
@@ -65,7 +66,9 @@ export function TMDBSearchAutocomplete({
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/tmdb/search?query=${encodeURIComponent(query)}`,
+          publicBackendApiUrl(
+            `/api/tmdb/search?query=${encodeURIComponent(query)}`,
+          ),
         );
         if (res.ok) {
           const data = await res.json();

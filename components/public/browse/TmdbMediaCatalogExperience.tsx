@@ -14,6 +14,7 @@ import {
   recommendedHeader,
   springCardHover,
 } from "@/lib/motion";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 const easeNoir = [0.25, 0.1, 0.25, 1] as const;
 
@@ -63,7 +64,9 @@ export default function TmdbMediaCatalogExperience({
         params.set("with_watch_providers", withWatchProviders);
         params.set("watch_region", watchRegion);
       }
-      const res = await fetch(`/api/tmdb/discover?${params.toString()}`);
+      const res = await fetch(
+        publicBackendApiUrl(`/api/tmdb/discover?${params.toString()}`),
+      );
       if (!res.ok) return;
       const data = (await res.json()) as {
         results?: TmdbCatalogItem[];

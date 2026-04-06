@@ -7,6 +7,7 @@ import {
   getFinalPlaybackUrl,
   isProxyOrHlsSource,
 } from "@/lib/watch-playback";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 /**
  * Avoid duplicate POST /trigger-ingestion when two polls both see `exists: false`
@@ -39,7 +40,8 @@ export function useWatchIngestion(
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Checking availability…");
   const pollStartedAtRef = useRef<number>(Date.now());
-  const hlsFallbackAttemptedByVideoIdRef = useRef(new Set<string>());
+  /** Completed but not browser-playable — no transcoder; stop quickly and surface external player. */
+  const unplayableCompletedPollsRef = useRef(0);
 
   /** New id when `tmdbId` changes — ties polls, trigger POST, and worker logs */
   const [watchFlowId, setWatchFlowId] = useState(() => crypto.randomUUID());
@@ -94,7 +96,7 @@ export function useWatchIngestion(
           watch_flow_id: watchFlowId,
         });
         const checkRes = await fetch(
-          `/api/public/movie-status?${statusQs.toString()}`,
+          publicBackendApiUrl(`/api/movie-status?${statusQs.toString()}`),
         );
         if (!checkRes.ok) throw new Error("Failed to check status");
         const checkData = (await checkRes.json()) as {
@@ -110,18 +112,21 @@ export function useWatchIngestion(
 
           if (!skipDuplicatePost) {
             triggerIngestionLastPostAt.set(tmdbId, now);
-            const triggerRes = await fetch("/api/public/trigger-ingestion", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                tmdb_id: parseInt(tmdbId, 10),
-                title: movie.title,
-                year: movie.release_date
-                  ? movie.release_date.substring(0, 4)
-                  : "",
-                watch_flow_id: watchFlowId,
-              }),
-            });
+            const triggerRes = await fetch(
+              publicBackendApiUrl("/api/trigger-ingestion"),
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  tmdb_id: parseInt(tmdbId, 10),
+                  title: movie.title,
+                  year: movie.release_date
+                    ? movie.release_date.substring(0, 4)
+                    : "",
+                  watch_flow_id: watchFlowId,
+                }),
+              },
+            );
 
             if (!triggerRes.ok) {
               triggerIngestionLastPostAt.delete(tmdbId);
@@ -147,76 +152,34 @@ export function useWatchIngestion(
 
           if (completed) {
             if (canPlayInBrowser(vid)) {
+              unplayableCompletedPollsRef.current = 0;
               setLoading(false);
-              const isHlsTranscode =
-                vid.mediaflow_playback?.type === "mediaflow_transcode_hls" ||
-                vid.playback_source?.type === "mediaflow_transcode_hls";
-              if (isHlsTranscode) {
-                setMessage("Optimizing stream for browser playback…");
-              } else {
-                setMessage("Ready to play");
-              }
+              const hls = url && /\.m3u8(\?|$)/i.test(url);
+              setMessage(
+                hls
+                  ? "Optimizing stream for browser playback…"
+                  : "Ready to play",
+              );
               stopPolling();
               return;
-            } else {
-              const videoId = vid.id;
-              if (
-                videoId &&
-                !hlsFallbackAttemptedByVideoIdRef.current.has(videoId)
-              ) {
-                hlsFallbackAttemptedByVideoIdRef.current.add(videoId);
-                console.info("[watch] force-hls fallback start", {
-                  videoId,
-                  playbackType:
-                    vid.mediaflow_playback?.type ??
-                    vid.playback_source?.type ??
-                    null,
-                  container: vid.playback_source?.container ?? null,
-                });
-                setMessage("Optimizing stream for browser playback…");
-                const fallbackRes = await fetch("/api/public/force-hls", {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ video_id: videoId }),
-                });
-                if (fallbackRes.ok) {
-                  console.info("[watch] force-hls fallback success", {
-                    videoId,
-                  });
-                  scheduleNextPoll();
-                } else {
-                  const fallbackError = await fallbackRes
-                    .json()
-                    .catch(() => ({}) as Record<string, unknown>);
-                  console.warn("[watch] force-hls fallback failed", {
-                    videoId,
-                    status: fallbackRes.status,
-                    fallbackError,
-                  });
-                  setLoading(false);
-                  setMessage(
-                    "File is ready but needs an external player for this format.",
-                  );
-                  stopPolling();
-                }
-              } else {
-                if (videoId) {
-                  console.info("[watch] force-hls fallback already attempted", {
-                    videoId,
-                  });
-                }
-                setLoading(false);
-                setMessage(
-                  "File is ready but needs an external player for this format.",
-                );
-                stopPolling();
-              }
             }
+            unplayableCompletedPollsRef.current += 1;
+            if (unplayableCompletedPollsRef.current > 2) {
+              setLoading(false);
+              setMessage(
+                "File is ready but needs an external player for this format.",
+              );
+              stopPolling();
+              return;
+            }
+            setMessage("Checking playback options…");
+            scheduleNextPoll();
           } else if (vid.status === "failed") {
             setLoading(false);
             setMessage(vid.error_message ?? "Ingestion failed.");
             stopPolling();
           } else {
+            unplayableCompletedPollsRef.current = 0;
             setMessage(
               `Processing: ${(vid.status ?? "pending").replace(/_/g, " ")}… (${vid.progress ?? 0}%)`,
             );
@@ -246,9 +209,9 @@ export function useWatchIngestion(
 
   const finalPlaybackUrl = getFinalPlaybackUrl(status);
   const isProxyType = isProxyOrHlsSource(status);
-  const isTranscodeSource =
-    status?.mediaflow_playback?.type === "mediaflow_transcode_hls" ||
-    status?.playback_source?.type === "mediaflow_transcode_hls";
+  const isTranscodeSource = Boolean(
+    finalPlaybackUrl && /\.m3u8(\?|$)/i.test(finalPlaybackUrl),
+  );
   const streamReady =
     !loading &&
     !!finalPlaybackUrl &&

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Play, ChevronRight, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 type HeroMovie = {
   id: number;
@@ -22,7 +23,9 @@ export default function HeroBanner() {
   useEffect(() => {
     async function fetchTrending() {
       try {
-        const res = await fetch("/api/tmdb/trending?time_window=day");
+        const res = await fetch(
+          publicBackendApiUrl("/api/tmdb/trending?time_window=day"),
+        );
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         if (data.results && data.results.length > 0) {
@@ -50,7 +53,9 @@ export default function HeroBanner() {
   if (loading || movies.length === 0) {
     return (
       <div className="w-full h-[85vh] md:h-[95vh] bg-muted animate-pulse flex items-center justify-center">
-        <span className="text-muted-foreground text-xl font-medium">Preparing Premiere...</span>
+        <span className="text-muted-foreground text-xl font-medium">
+          Preparing Premiere...
+        </span>
       </div>
     );
   }

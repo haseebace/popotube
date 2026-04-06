@@ -13,6 +13,7 @@ import { Search, User, Loader2 } from "lucide-react";
 import { navEntry, springCta, springSearchBar } from "@/lib/motion";
 import { StreamingNavDropdown } from "@/components/public/StreamingNavDropdown";
 import { STREAMING_PROVIDERS } from "@/lib/streaming-providers";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 const links = [
   { href: "/", label: "Home" },
@@ -102,7 +103,9 @@ export default function CinematicNavbar() {
       setIsSearching(true);
       try {
         const res = await fetch(
-          `/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`,
+          publicBackendApiUrl(
+            `/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`,
+          ),
         );
         const data = (await res.json()) as {
           results?: Array<{
@@ -245,7 +248,7 @@ export default function CinematicNavbar() {
                   initial={false}
                   animate={{
                     opacity: searchExpanded ? 1 : 0,
-                    x: searchExpanded ? 0 : -12,
+                    x: searchExpanded ? 0 : -10,
                   }}
                   transition={springSearchBar}
                   style={{ pointerEvents: searchExpanded ? "auto" : "none" }}

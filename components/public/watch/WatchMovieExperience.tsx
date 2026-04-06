@@ -42,6 +42,8 @@ type Props = {
   playButtonDisabled?: boolean;
   /** e.g. ingestion progress under hero CTAs */
   heroFooter?: ReactNode;
+  /** VLC / IINA etc., shown when a stream URL is available */
+  externalPlayerActions?: ReactNode;
 };
 
 export default function WatchMovieExperience({
@@ -55,6 +57,7 @@ export default function WatchMovieExperience({
   playButtonLabel = "PLAY",
   playButtonDisabled = false,
   heroFooter,
+  externalPlayerActions,
 }: Props) {
   const backdropUrl = movie.backdrop_path
     ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}`
@@ -207,6 +210,11 @@ export default function WatchMovieExperience({
                   />
                   WATCHLIST
                 </motion.button>
+                {externalPlayerActions ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {externalPlayerActions}
+                  </div>
+                ) : null}
               </motion.div>
               {heroFooter ? (
                 <div className="mt-8 max-w-2xl">{heroFooter}</div>

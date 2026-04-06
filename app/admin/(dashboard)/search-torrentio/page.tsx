@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +87,9 @@ export default function TorrentioSearchPage() {
     setLoading(true);
     setResults([]);
     try {
-      const res = await fetch(`/api/torrentio/search?tmdbId=${tmdbId}`);
+      const res = await fetch(
+        publicBackendApiUrl(`/api/torrentio/search?tmdbId=${tmdbId}`),
+      );
       if (!res.ok) throw new Error("Couldn't load streams");
       const data = await res.json();
       setResults(data.results || []);
@@ -104,7 +107,7 @@ export default function TorrentioSearchPage() {
     const metadata = parseReleaseMetadata(result.title);
 
     try {
-      const res = await fetch("/api/backend/ingest", {
+      const res = await fetch(publicBackendApiUrl("/api/ingest"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

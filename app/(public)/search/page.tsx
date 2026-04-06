@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Search as SearchIcon } from "lucide-react";
 import MovieCard from "@/components/public/MovieCard";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 type TmdbMultiHit = {
   id: number;
@@ -56,7 +57,9 @@ export default function SearchPage() {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`,
+          publicBackendApiUrl(
+            `/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`,
+          ),
         );
         if (!res.ok) throw new Error("Search failed");
         const data = await res.json();

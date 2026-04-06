@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 import {
   Trash2,
   Play,
@@ -86,7 +87,9 @@ export default function DownloadedUnrestrictedPage() {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/backend/downloads?page=${currentPage}&limit=${RESULTS_PER_PAGE}`,
+          publicBackendApiUrl(
+            `/api/downloads?page=${currentPage}&limit=${RESULTS_PER_PAGE}`,
+          ),
         );
         if (!res.ok) {
           throw new Error("Failed to fetch downloads from Real-Debrid");
@@ -116,7 +119,7 @@ export default function DownloadedUnrestrictedPage() {
 
   const handleDelete = async (id: string, filename: string, quiet = false) => {
     try {
-      const res = await fetch(`/api/backend/downloads/${id}`, {
+      const res = await fetch(publicBackendApiUrl(`/api/downloads/${id}`), {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete from downloads list");

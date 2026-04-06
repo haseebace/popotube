@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CirclePlay, Play, Plus } from "lucide-react";
 import type { WatchSimilarTv } from "@/components/public/watch/types";
+import { ExternalPlayerDialog } from "@/components/public/ExternalPlayerDialog";
 import WatchNetflixPlayer from "@/components/public/watch/WatchNetflixPlayer";
 import { Progress } from "@/components/ui/progress";
 import { useTvEpisodeIngestion } from "@/hooks/useTvEpisodeIngestion";
@@ -16,9 +17,11 @@ import {
   noirCtaRow,
 } from "@/lib/noir-cta-styles";
 import { springCta } from "@/lib/motion";
-import { guessVideoJsType } from "@/lib/watch-playback";
+import { getVideoJsMimeType } from "@/lib/watch-playback";
+import { getPublicBackendUrl } from "@/lib/backend-public-url";
 import { cn } from "@/lib/utils";
 import type { TMDBTVEpisode } from "@/lib/tmdb-tv";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 const easeNoir = [0.25, 0.1, 0.25, 1] as const;
 
@@ -117,6 +120,21 @@ export default function WatchTvSeriesExperience({
     playTarget != null,
   );
 
+  const episodePlayerSrc = useMemo(() => {
+    const raw = episodeIngest.finalPlaybackUrl;
+    if (!raw) return null;
+    const streamPrefix = `${getPublicBackendUrl()}/api/stream/`;
+    if (!raw.startsWith(streamPrefix)) return raw;
+    const sep = raw.includes("?") ? "&" : "?";
+    return `${raw}${sep}watch_flow_id=${encodeURIComponent(episodeIngest.watchFlowId)}`;
+  }, [episodeIngest.finalPlaybackUrl, episodeIngest.watchFlowId]);
+
+  const episodeExternalDirectUrl = useMemo(() => {
+    if (episodeIngest.status?.status !== "completed") return null;
+    const u = episodeIngest.status.playback_source?.url;
+    return typeof u === "string" && /^https?:\/\//i.test(u) ? u : null;
+  }, [episodeIngest.status]);
+
   const posterUrlForPlayer = useMemo(() => {
     const b = backdrop_path;
     const p = poster_path;
@@ -140,7 +158,9 @@ export default function WatchTvSeriesExperience({
       setLoadingSeason(true);
       try {
         const res = await fetch(
-          `/api/tmdb/tv/season?tv_id=${encodeURIComponent(tvId)}&season_number=${seasonNumber}`,
+          publicBackendApiUrl(
+            `/api/tmdb/tv/season?tv_id=${encodeURIComponent(tvId)}&season_number=${seasonNumber}`,
+          ),
         );
         if (!res.ok) return;
         const data = (await res.json()) as { episodes?: TMDBTVEpisode[] };
@@ -520,6 +540,47 @@ export default function WatchTvSeriesExperience({
                     })}
                   </ul>
                 )}
+                {playTarget != null &&
+                episodeExternalDirectUrl &&
+                episodeIngest.status?.status === "completed" ? (
+                  <div className="mt-6 flex flex-col gap-3 border-t border-noir-divider-subtle pt-6">
+                    <span className="label-md text-on-surface-variant">
+                      External player
+                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <ExternalPlayerDialog
+                        playerName="VLC"
+                        url={episodeExternalDirectUrl}
+                        filename={`${name} — S${playTarget.season}E${playTarget.episode}`}
+                      >
+                        <button
+                          type="button"
+                          className={cn(
+                            noirCtaSecondaryMotion,
+                            "cursor-pointer text-xs uppercase tracking-wide md:text-sm",
+                          )}
+                        >
+                          Open in VLC
+                        </button>
+                      </ExternalPlayerDialog>
+                      <ExternalPlayerDialog
+                        playerName="IINA"
+                        url={episodeExternalDirectUrl}
+                        filename={`${name} — S${playTarget.season}E${playTarget.episode}`}
+                      >
+                        <button
+                          type="button"
+                          className={cn(
+                            noirCtaSecondaryMotion,
+                            "cursor-pointer text-xs uppercase tracking-wide md:text-sm",
+                          )}
+                        >
+                          Open in IINA
+                        </button>
+                      </ExternalPlayerDialog>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
@@ -718,15 +779,12 @@ export default function WatchTvSeriesExperience({
         ) : null}
       </main>
 
-      {episodeIngest.finalPlaybackUrl && episodeIngest.canPlay && playTarget ? (
+      {episodePlayerSrc && episodeIngest.canPlay && playTarget ? (
         <WatchNetflixPlayer
           open={playerOpen}
           onClose={() => setPlayerOpen(false)}
-          src={episodeIngest.finalPlaybackUrl}
-          mimeType={guessVideoJsType(
-            episodeIngest.finalPlaybackUrl,
-            episodeIngest.isProxyType,
-          )}
+          src={episodePlayerSrc}
+          mimeType={getVideoJsMimeType(episodeIngest.status, episodePlayerSrc)}
           poster={posterUrlForPlayer}
           title={`${name} — S${playTarget.season}E${playTarget.episode}`}
         />

@@ -14,6 +14,7 @@ import {
   recommendedHeader,
   springCardHover,
 } from "@/lib/motion";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 const easeNoir = [0.25, 0.1, 0.25, 1] as const;
 
@@ -38,7 +39,9 @@ export default function StreamingCatalogExperience({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/tmdb/discover?with_watch_providers=${provider.tmdbProviderId}&watch_region=US&page=${next}`,
+        publicBackendApiUrl(
+          `/api/tmdb/discover?with_watch_providers=${provider.tmdbProviderId}&watch_region=US&page=${next}`,
+        ),
       );
       if (!res.ok) return;
       const data = (await res.json()) as {

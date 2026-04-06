@@ -125,12 +125,14 @@ export const springCta: Transition = {
   damping: 25,
 };
 
-/** Navbar search: expand / collapse width */
+/**
+ * Navbar search: expand / collapse — spring with explicit bounce (duration + bounce;
+ * stiffness/damping would override bounce in Motion).
+ */
 export const springSearchBar: Transition = {
   type: "spring",
-  stiffness: 420,
-  damping: 28,
-  mass: 0.75,
+  bounce: 0.55,
+  duration: 0.52,
 };
 
 export const springCardHover: Transition = {

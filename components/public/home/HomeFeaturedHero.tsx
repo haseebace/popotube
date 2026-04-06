@@ -92,7 +92,7 @@ export default function HomeFeaturedHero({ movie, genreLine }: Props) {
             alt={movie.title}
             fill
             priority
-            className="object-cover opacity-60 grayscale"
+            className="object-cover opacity-60"
             sizes="100vw"
           />
         </motion.div>

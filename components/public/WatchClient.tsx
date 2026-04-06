@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Hls from "hls.js";
 import { ExternalPlayerDialog } from "@/components/public/ExternalPlayerDialog";
 import { getFinalPlaybackUrl, isProxyOrHlsSource } from "@/lib/watch-playback";
+import { publicBackendApiUrl } from "@/lib/backend-public-url";
 
 export default function WatchClient({
   tmdbId,
@@ -40,7 +41,7 @@ export default function WatchClient({
 
       try {
         const checkRes = await fetch(
-          `/api/public/movie-status?tmdb_id=${tmdbId}`,
+          publicBackendApiUrl(`/api/movie-status?tmdb_id=${tmdbId}`),
         );
         if (!checkRes.ok) throw new Error("Failed to check status");
         const checkData = await checkRes.json();
@@ -48,17 +49,20 @@ export default function WatchClient({
         if (!checkData.exists) {
           // Cache Miss: Trigger Ingestion
           setMessage("Movie not prepared. Triggering secure ingestion...");
-          const triggerRes = await fetch("/api/public/trigger-ingestion", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tmdb_id: tmdbId,
-              title: movieDetails.title,
-              year: movieDetails.release_date
-                ? movieDetails.release_date.substring(0, 4)
-                : "",
-            }),
-          });
+          const triggerRes = await fetch(
+            publicBackendApiUrl("/api/trigger-ingestion"),
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tmdb_id: parseInt(tmdbId, 10),
+                title: movieDetails.title,
+                year: movieDetails.release_date
+                  ? movieDetails.release_date.substring(0, 4)
+                  : "",
+              }),
+            },
+          );
 
           if (!triggerRes.ok) {
             const err = await triggerRes.json();
@@ -191,8 +195,8 @@ export default function WatchClient({
                 be played directly in the browser yet.
               </p>
               <p className="text-xs text-muted-foreground/50">
-                A streaming media server like MediaFlow is required to watch
-                MKV/AVI files natively, or you can play it locally using VLC.
+                This format is not reliably playable in the browser. Use an
+                external player (VLC, IINA) or download and play locally.
               </p>
               <div className="flex flex-col items-center gap-3 pt-4">
                 <div className="flex gap-3">

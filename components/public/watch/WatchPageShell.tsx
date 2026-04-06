@@ -2,11 +2,19 @@
 
 import { useState, useMemo, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { ExternalPlayerDialog } from "@/components/public/ExternalPlayerDialog";
 import { Progress } from "@/components/ui/progress";
 import WatchMovieExperience from "@/components/public/watch/WatchMovieExperience";
 import WatchNetflixPlayer from "@/components/public/watch/WatchNetflixPlayer";
 import { useWatchIngestion } from "@/hooks/useWatchIngestion";
-import { guessVideoJsType } from "@/lib/watch-playback";
+import {
+  getPublicBackendUrl,
+  publicBackendApiUrl,
+} from "@/lib/backend-public-url";
+import { noirCtaSecondaryMotion } from "@/lib/noir-cta-styles";
+import { cn } from "@/lib/utils";
+import { getFinalPlaybackUrl, getVideoJsMimeType } from "@/lib/watch-playback";
+import type { VideoRowLike } from "@/lib/watch-playback";
 import type { WatchMoviePayload } from "@/components/public/watch/types";
 
 export type WatchPageShellProps = {
@@ -59,7 +67,8 @@ export default function WatchPageShell({
   const playerSrc = useMemo(() => {
     const raw = overridePlaybackUrl || ingest.finalPlaybackUrl || null;
     if (!raw) return null;
-    if (!raw.startsWith("/api/proxy/stream/")) return raw;
+    const streamPrefix = `${getPublicBackendUrl()}/api/stream/`;
+    if (!raw.startsWith(streamPrefix)) return raw;
     const sep = raw.includes("?") ? "&" : "?";
     return `${raw}${sep}watch_flow_id=${encodeURIComponent(ingest.watchFlowId)}`;
   }, [ingest.finalPlaybackUrl, ingest.watchFlowId, overridePlaybackUrl]);
@@ -74,53 +83,34 @@ export default function WatchPageShell({
 
   const handlePlaybackError = useCallback(
     async (detail?: { code: number | null }) => {
-      const sourceType =
-        ingest.status?.mediaflow_playback?.type ??
-        ingest.status?.playback_source?.type;
       const code = detail?.code ?? null;
-
-      // Mediaflow transcode often passes through 5.1 AAC; Chrome MSE frequently throws
-      // MEDIA_ERR_DECODE (3) on that mux. Native HLS (Safari) or stereo audio on the server fixes it.
-      if (code === 3 && sourceType === "mediaflow_transcode_hls") {
+      if (code === 3) {
         toast.message("This browser could not decode the stream", {
           description:
-            "Surround (5.1) AAC in these HLS segments often fails in Chromium browsers. Try Safari or iOS, or configure Mediaflow to downmix audio to stereo AAC.",
+            "Try Safari or iOS, or open the file in an external player (VLC, IINA).",
         });
-        return;
       }
 
       if (fallbackAttemptedRef.current) return;
-      const videoId = ingest.status?.id;
-      if (!videoId) return;
       fallbackAttemptedRef.current = true;
       try {
         toast.message("Playback issue detected", {
-          description:
-            sourceType === "mediaflow_transcode_hls"
-              ? "Refreshing MediaFlow stream…"
-              : "Switching to browser-safe stream…",
+          description: "Refreshing stream status…",
         });
-        const res = await fetch("/api/public/force-hls", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ video_id: videoId }),
+        const qs = new URLSearchParams({
+          tmdb_id: tmdbId,
+          watch_flow_id: ingest.watchFlowId,
         });
-        if (!res.ok) {
-          throw new Error("Could not switch playback source");
-        }
-        const payload = (await res.json()) as {
-          mediaflow_playback?: { url?: string };
-          playback_source?: { url?: string };
-        };
-        const newUrl =
-          payload.mediaflow_playback?.url ?? payload.playback_source?.url;
+        const res = await fetch(
+          publicBackendApiUrl(`/api/movie-status?${qs.toString()}`),
+        );
+        if (!res.ok) throw new Error("Could not refresh playback");
+        const payload = (await res.json()) as { video?: VideoRowLike };
+        const newUrl = getFinalPlaybackUrl(payload.video ?? null);
         if (newUrl) {
           setOverridePlaybackUrl(newUrl);
           toast.message("Playback source updated", {
-            description:
-              sourceType === "mediaflow_transcode_hls"
-                ? "Retrying with a fresh MediaFlow stream URL."
-                : "Retrying with optimized stream.",
+            description: "Retrying with the latest stream URL.",
           });
         }
       } catch {
@@ -129,12 +119,53 @@ export default function WatchPageShell({
         });
       }
     },
-    [
-      ingest.status?.id,
-      ingest.status?.mediaflow_playback?.type,
-      ingest.status?.playback_source?.type,
-    ],
+    [tmdbId, ingest.watchFlowId],
   );
+
+  /** Direct HTTP(S) URL for VLC/IINA (normalized Real-Debrid from movie-status). */
+  const externalDirectUrl = useMemo(() => {
+    if (ingest.status?.status !== "completed") return null;
+    const u = ingest.status.playback_source?.url;
+    return typeof u === "string" && /^https?:\/\//i.test(u) ? u : null;
+  }, [ingest.status]);
+
+  const externalPlayerActions = useMemo(() => {
+    if (!externalDirectUrl) return null;
+    return (
+      <>
+        <ExternalPlayerDialog
+          playerName="VLC"
+          url={externalDirectUrl}
+          filename={payload.title}
+        >
+          <button
+            type="button"
+            className={cn(
+              noirCtaSecondaryMotion,
+              "cursor-pointer text-xs uppercase tracking-wide md:text-sm",
+            )}
+          >
+            Open in VLC
+          </button>
+        </ExternalPlayerDialog>
+        <ExternalPlayerDialog
+          playerName="IINA"
+          url={externalDirectUrl}
+          filename={payload.title}
+        >
+          <button
+            type="button"
+            className={cn(
+              noirCtaSecondaryMotion,
+              "cursor-pointer text-xs uppercase tracking-wide md:text-sm",
+            )}
+          >
+            Open in IINA
+          </button>
+        </ExternalPlayerDialog>
+      </>
+    );
+  }, [externalDirectUrl, payload.title]);
 
   const heroFooter = useMemo(() => {
     if (ingest.status?.status === "failed") {
@@ -182,16 +213,14 @@ export default function WatchPageShell({
         playButtonLabel={playLabel}
         playButtonDisabled={ingest.status?.status === "failed"}
         heroFooter={heroFooter}
+        externalPlayerActions={externalPlayerActions ?? undefined}
       />
       {playerSrc && ingest.canPlay ? (
         <WatchNetflixPlayer
           open={playerOpen}
           onClose={() => setPlayerOpen(false)}
           src={playerSrc}
-          mimeType={guessVideoJsType(
-            playerSrc,
-            overridePlaybackUrl ? true : ingest.isProxyType,
-          )}
+          mimeType={getVideoJsMimeType(ingest.status, playerSrc)}
           poster={posterUrl}
           title={payload.title}
           onPlaybackError={handlePlaybackError}
