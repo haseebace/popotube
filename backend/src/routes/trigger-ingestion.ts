@@ -15,11 +15,16 @@ import {
   type FindVideoForTmdbOpts,
 } from "../lib/video-reuse";
 import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
+import {
+  backfillVideoIdentityFksIfNeeded,
+  resolveVideoIdentityInsertColumns,
+} from "../lib/media-identity";
+import { publicPlaybackSourceFromRow } from "../lib/playback-public";
+import { getTorrentioBaseUrl } from "../lib/torrentio-url";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL =
   process.env.TMDB_BASE_URL || "https://api.themoviedb.org/3";
-const TORRENTIO_BASE_URL = "https://torrentio.strem.fun";
 
 interface TriggerIngestionBody {
   tmdb_id: number;
@@ -82,8 +87,9 @@ function buildReuseExistingVideoResponse(video: Record<string, any>) {
     jobId: video.bullmq_job_id ?? null,
     reusedExisting: true,
     stream_url: null,
-    playback_source: video.playback_source ?? null,
-    mediaflow_playback: video.mediaflow_playback ?? null,
+    playback_source:
+      publicPlaybackSourceFromRow(video.stream_url, video.playback_source) ??
+      null,
   };
 }
 
@@ -269,7 +275,7 @@ async function fetchTorrentioCandidates(
     kind === "movie"
       ? `movie/${imdbId}.json`
       : `series/${imdbId}:${season}:${episode}.json`;
-  const torrentioUrl = `${TORRENTIO_BASE_URL}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/${path}`;
+  const torrentioUrl = `${getTorrentioBaseUrl()}/providers=yts,eztv,rarbg,1337x,thepiratebay,kickasstorrents,torrent9,horriblesubs,nyaasi,tokyotosho,sukebei/stream/${path}`;
   let response;
   try {
     response = await axios.get<{ streams?: TorrentioStream[] }>(torrentioUrl, {
@@ -764,6 +770,14 @@ export default async function (fastify: FastifyInstance) {
         // 3. Insert or update DB
         let videoRecord;
         const tmdbMediaType = isTvEpisode ? "tv" : "movie";
+        const identityInsert = await resolveVideoIdentityInsertColumns({
+          tmdbId: tmdb_id,
+          title,
+          tmdbMediaType,
+          seasonNumber: isTvEpisode ? body.season_number : null,
+          episodeNumber: isTvEpisode ? body.episode_number : null,
+          tmdbEpisodeId: null,
+        });
         const { data, error } = await supabase
           .from("videos")
           .insert({
@@ -773,6 +787,7 @@ export default async function (fastify: FastifyInstance) {
             size_bytes: size,
             tmdb_id,
             tmdb_media_type: tmdbMediaType,
+            ...identityInsert,
             ...videoParseCols,
             ...(isTvEpisode
               ? {
@@ -823,6 +838,7 @@ export default async function (fastify: FastifyInstance) {
                   error_message: null,
                   progress: 0,
                   tmdb_id: tmdb_id || existingData.tmdb_id,
+                  ...identityInsert,
                   ...mergeVideoParseColumns(videoParseCols, existingData),
                   tmdb_media_type: tmdbMediaType,
                   ...(isTvEpisode
@@ -848,6 +864,7 @@ export default async function (fastify: FastifyInstance) {
                   .from("videos")
                   .update({
                     tmdb_id,
+                    ...identityInsert,
                     ...mergeVideoParseColumns(videoParseCols, existingData),
                     tmdb_media_type: tmdbMediaType,
                     ...(isTvEpisode
@@ -859,6 +876,18 @@ export default async function (fastify: FastifyInstance) {
                   })
                   .eq("id", existingData.id);
               }
+
+              await backfillVideoIdentityFksIfNeeded({
+                ...existingData,
+                tmdb_id: tmdb_id || existingData.tmdb_id,
+                tmdb_media_type: tmdbMediaType,
+                ...(isTvEpisode
+                  ? {
+                      season_number: body.season_number,
+                      episode_number: body.episode_number,
+                    }
+                  : {}),
+              });
 
               log.info(
                 {
@@ -887,6 +916,8 @@ export default async function (fastify: FastifyInstance) {
         } else {
           videoRecord = data;
         }
+
+        await backfillVideoIdentityFksIfNeeded(videoRecord);
 
         // 4. Queue the job
         log.info(

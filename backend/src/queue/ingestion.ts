@@ -6,13 +6,11 @@ import type { Logger } from "pino";
 import { logger } from "../lib/logger";
 import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
 import {
-  buildMediaflowTranscodeHls,
   isContainerBrowserSafe,
-  isMediaflowEnabled,
-  type MediaflowPlaybackColumn,
   type PlaybackSource,
-} from "../lib/mediaflow";
+} from "../lib/playback-source";
 import { parseReleaseMetadata } from "../lib/release-metadata";
+import { backfillVideoIdentityFksIfNeeded } from "../lib/media-identity";
 
 export const INGESTION_QUEUE_NAME = "ingestionQueue";
 const RD_CONVERSION_POLL_MS = 750;
@@ -141,6 +139,8 @@ export const ingestionWorker = new Worker(
           `Failed to fetch video record ${videoId}: ${fetchErr?.message || "No record found"}`,
         );
       }
+
+      await backfillVideoIdentityFksIfNeeded(videoRecord);
 
       stepLog =
         videoRecord.tmdb_id != null
@@ -325,7 +325,7 @@ export const ingestionWorker = new Worker(
           ? resolvedCodec
           : "Unknown";
 
-      // Mark the title as playback-ready (MediaFlow preferred; direct RD fallback)
+      // Mark the title as playback-ready: Real-Debrid URL + optional Fastify /api/stream for non-browser containers.
       const containerExt =
         unrestrictData.filename.split(".").pop()?.toLowerCase() || "unknown";
       const isStreamable = isContainerBrowserSafe(containerExt);
@@ -339,39 +339,15 @@ export const ingestionWorker = new Worker(
         source_type: "real_debrid",
       };
 
-      let mediaflowPlayback: MediaflowPlaybackColumn | null = null;
-      if (!isStreamable && isMediaflowEnabled()) {
-        try {
-          mediaflowPlayback = await buildMediaflowTranscodeHls({
-            upstreamUrl: fullDownloadUrl,
-            container: containerExt,
-            codec: codecLabel,
-          });
-        } catch (mediaflowErr) {
-          log.warn(
-            {
-              err: mediaflowErr,
-              jobId: job.id,
-              videoId,
-              source_type: "mediaflow",
-            },
-            "⚠️ MediaFlow HLS URL build failed — playback_source still holds Real-Debrid; browser may need external player.",
-          );
-        }
-      }
-
-      const playbackExplanation = mediaflowPlayback
-        ? "✅ Saved Real-Debrid URL in playback_source; MediaFlow HLS manifest in mediaflow_playback (transcode)."
-        : isStreamable
-          ? "✅ Saved playback: Real-Debrid + app stream proxy — one egress IP to RD; browser uses /api/proxy/stream."
-          : "✅ Saved playback: Real-Debrid only (no MediaFlow HLS) — may need external player for this container.";
+      const playbackExplanation = isStreamable
+        ? "✅ Saved playback: Real-Debrid + Fastify stream URL — one egress IP to RD; browser calls /api/stream/:id on the backend."
+        : "✅ Saved playback: Real-Debrid — non-browser container may need external player; others use /api/stream/:id.";
 
       log.info(
         {
           jobId: job.id,
           videoId,
           playback_source_type: directPlaybackSource.type,
-          mediaflow_playback: Boolean(mediaflowPlayback),
           container: containerExt,
           filename: unrestrictData.filename,
           streamable: isStreamable,
@@ -386,7 +362,6 @@ export const ingestionWorker = new Worker(
           progress: 100,
           stream_url: fullDownloadUrl,
           playback_source: directPlaybackSource,
-          mediaflow_playback: mediaflowPlayback,
           ...(resolvedCodec && resolvedCodec !== "unknown"
             ? { codec: resolvedCodec }
             : {}),

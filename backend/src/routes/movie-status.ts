@@ -3,12 +3,7 @@ import {
   findBestVideoForTmdb,
   type FindVideoForTmdbOpts,
 } from "../lib/video-reuse";
-import {
-  buildMediaflowPlaybackSource,
-  buildMediaflowTranscodeHls,
-  isMediaflowEnabled,
-  playbackSourceToMediaflowColumn,
-} from "../lib/mediaflow";
+import { publicPlaybackSourceFromRow } from "../lib/playback-public";
 import { sanitizeWatchFlowId } from "../lib/watch-flow-id";
 
 function parseTvEpisodeOpts(
@@ -35,133 +30,16 @@ function parseTvEpisodeOpts(
 function sanitizeVideoForPublic(
   video: Record<string, unknown>,
 ): Record<string, unknown> {
-  const playbackSource =
-    video.playback_source && typeof video.playback_source === "object"
-      ? { ...(video.playback_source as Record<string, unknown>) }
-      : null;
-  const mediaflowPlayback =
-    video.mediaflow_playback && typeof video.mediaflow_playback === "object"
-      ? { ...(video.mediaflow_playback as Record<string, unknown>) }
-      : null;
-
-  const redactRdUrl = Boolean(
-    mediaflowPlayback && (mediaflowPlayback as { url?: string }).url,
+  const playbackSource = publicPlaybackSourceFromRow(
+    video.stream_url,
+    video.playback_source,
   );
-
-  const playbackForClient =
-    playbackSource && redactRdUrl
-      ? { ...playbackSource, url: null }
-      : playbackSource;
 
   return {
     ...video,
     stream_url: null,
-    playback_source: playbackForClient,
-    mediaflow_playback: mediaflowPlayback,
+    playback_source: playbackSource,
   };
-}
-
-type PlaybackSourceShape = {
-  type?: string;
-  url?: string;
-  container?: string;
-  codec?: string;
-  source_type?: string;
-  is_streamable?: boolean;
-  mime_type?: string;
-};
-
-type MediaflowPlaybackShape = {
-  type?: string;
-  url?: string;
-  container?: string;
-  codec?: string;
-};
-
-function extensionFromUrl(raw: string): string {
-  try {
-    const url = new URL(raw);
-    const filename = url.pathname.split("/").pop() || "";
-    const ext = filename.split(".").pop()?.toLowerCase();
-    return ext || "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-
-async function refreshEphemeralMediaflowUrlIfNeeded(
-  video: Record<string, unknown>,
-  log: FastifyInstance["log"],
-): Promise<Record<string, unknown>> {
-  if (!isMediaflowEnabled()) return video;
-
-  const streamUrl =
-    typeof video.stream_url === "string" ? video.stream_url : "";
-  if (!streamUrl) return video;
-
-  const mf =
-    video.mediaflow_playback && typeof video.mediaflow_playback === "object"
-      ? (video.mediaflow_playback as MediaflowPlaybackShape)
-      : null;
-
-  if (mf?.type === "mediaflow_transcode_hls") {
-    try {
-      const next = await buildMediaflowTranscodeHls({
-        upstreamUrl: streamUrl,
-        container: mf.container || extensionFromUrl(streamUrl),
-        codec: mf.codec || "Unknown",
-      });
-      return { ...video, mediaflow_playback: next };
-    } catch (err) {
-      log.warn(
-        { svc: "watch", err },
-        "Movie-status: failed to refresh MediaFlow HLS URL; returning stored mediaflow_playback.",
-      );
-      return video;
-    }
-  }
-
-  const playback =
-    video.playback_source && typeof video.playback_source === "object"
-      ? (video.playback_source as PlaybackSourceShape)
-      : null;
-  if (!playback) return video;
-
-  const type = playback.type || "";
-  if (type !== "mediaflow_stream" && type !== "mediaflow_transcode_hls") {
-    return video;
-  }
-
-  try {
-    const nextPlayback = await buildMediaflowPlaybackSource({
-      upstreamUrl: streamUrl,
-      container: playback.container || extensionFromUrl(streamUrl),
-      codec: playback.codec || "Unknown",
-    });
-    if (type === "mediaflow_transcode_hls") {
-      const column = playbackSourceToMediaflowColumn(nextPlayback);
-      if (column) {
-        return {
-          ...video,
-          mediaflow_playback: column,
-          playback_source: {
-            ...playback,
-            type: "direct",
-            url: streamUrl,
-            source_type: "real_debrid",
-            is_streamable: false,
-          },
-        };
-      }
-    }
-    return { ...video, playback_source: { ...nextPlayback, type } };
-  } catch (err) {
-    log.warn(
-      { svc: "watch", err },
-      "Movie-status: failed to refresh MediaFlow URL; returning stored playback_source.",
-    );
-    return video;
-  }
 }
 
 export default async function (fastify: FastifyInstance) {
@@ -198,7 +76,7 @@ export default async function (fastify: FastifyInstance) {
 
         const data = await findBestVideoForTmdb(
           tmdbNum,
-          "id, status, stream_url, playback_source, mediaflow_playback, progress, title, error_message, quality, codec, source, tmdb_id, bullmq_job_id, season_number, episode_number, release_year, release_group, release_parse_extras",
+          "id, status, stream_url, playback_source, progress, title, error_message, quality, codec, source, tmdb_id, bullmq_job_id, season_number, episode_number, release_year, release_group, release_parse_extras",
           findOpts,
         );
 
@@ -217,14 +95,9 @@ export default async function (fastify: FastifyInstance) {
           return reply.send({ exists: false });
         }
 
-        const responseVideo = await refreshEphemeralMediaflowUrlIfNeeded(
-          data,
-          log,
-        );
-
         return reply.send({
           exists: true,
-          video: sanitizeVideoForPublic(responseVideo),
+          video: sanitizeVideoForPublic(data),
         });
       } catch (err: unknown) {
         fastify.log.error(

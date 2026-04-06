@@ -11,6 +11,11 @@ import {
   isReusableVideoStatus,
   type FindVideoForTmdbOpts,
 } from "../lib/video-reuse";
+import {
+  backfillVideoIdentityFksIfNeeded,
+  resolveVideoIdentityInsertColumns,
+} from "../lib/media-identity";
+import { publicPlaybackSourceFromRow } from "../lib/playback-public";
 
 interface IngestBody {
   magnet: string;
@@ -103,8 +108,11 @@ export default async function (fastify: FastifyInstance) {
               jobId: existingVideo.bullmq_job_id || null,
               reusedExisting: true,
               stream_url: null,
-              playback_source: existingVideo.playback_source || null,
-              mediaflow_playback: existingVideo.mediaflow_playback || null,
+              playback_source:
+                publicPlaybackSourceFromRow(
+                  existingVideo.stream_url,
+                  existingVideo.playback_source,
+                ) ?? null,
             });
           }
         }
@@ -115,6 +123,15 @@ export default async function (fastify: FastifyInstance) {
         if (!info_hash) {
           return reply.status(400).send({ error: "Invalid magnet link" });
         }
+
+        const ingestIdentity = await resolveVideoIdentityInsertColumns({
+          tmdbId: tmdb_id ?? null,
+          title,
+          tmdbMediaType,
+          seasonNumber: videoFields.season_number,
+          episodeNumber: videoFields.episode_number,
+          tmdbEpisodeId: null,
+        });
 
         // Try to insert
         let videoRecord;
@@ -127,6 +144,7 @@ export default async function (fastify: FastifyInstance) {
             size_bytes: size,
             tmdb_id: tmdb_id || null,
             tmdb_media_type: tmdbMediaType,
+            ...ingestIdentity,
             ...videoFields,
           })
           .select()
@@ -163,6 +181,14 @@ export default async function (fastify: FastifyInstance) {
                 mergedFields.episode_number != null
                   ? "tv"
                   : "movie";
+              const retryIdentity = await resolveVideoIdentityInsertColumns({
+                tmdbId: (tmdb_id || existingData.tmdb_id) ?? null,
+                title,
+                tmdbMediaType: retryMediaType,
+                seasonNumber: mergedFields.season_number,
+                episodeNumber: mergedFields.episode_number,
+                tmdbEpisodeId: null,
+              });
               const { data: updatedData, error: updateError } = await supabase
                 .from("videos")
                 .update({
@@ -171,6 +197,7 @@ export default async function (fastify: FastifyInstance) {
                   progress: 0,
                   tmdb_id: tmdb_id || existingData.tmdb_id,
                   tmdb_media_type: retryMediaType,
+                  ...retryIdentity,
                   ...mergedFields,
                 })
                 .eq("id", existingData.id)
@@ -192,15 +219,38 @@ export default async function (fastify: FastifyInstance) {
                   patchFields.episode_number != null
                     ? "tv"
                     : "movie";
+                const patchIdentity = await resolveVideoIdentityInsertColumns({
+                  tmdbId: tmdb_id,
+                  title,
+                  tmdbMediaType: patchMediaType,
+                  seasonNumber: patchFields.season_number,
+                  episodeNumber: patchFields.episode_number,
+                  tmdbEpisodeId: null,
+                });
                 await supabase
                   .from("videos")
                   .update({
                     tmdb_id,
                     tmdb_media_type: patchMediaType,
+                    ...patchIdentity,
                     ...patchFields,
                   })
                   .eq("id", existingData.id);
               }
+
+              const backfillFields = buildVideoFields(existingData);
+              await backfillVideoIdentityFksIfNeeded({
+                ...existingData,
+                tmdb_id: tmdb_id || existingData.tmdb_id,
+                tmdb_media_type:
+                  backfillFields.season_number != null &&
+                  backfillFields.episode_number != null
+                    ? "tv"
+                    : "movie",
+                title: existingData.title,
+                season_number: backfillFields.season_number,
+                episode_number: backfillFields.episode_number,
+              });
 
               log.info(
                 {
@@ -227,6 +277,8 @@ export default async function (fastify: FastifyInstance) {
         } else {
           videoRecord = data;
         }
+
+        await backfillVideoIdentityFksIfNeeded(videoRecord);
 
         // Queue the job with resilience settings
         const job = await ingestionQueue.add(

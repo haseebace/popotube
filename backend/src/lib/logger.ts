@@ -57,7 +57,6 @@ const LOG_SVC = {
   queue: { emoji: "🧵", label: "Queue worker", ansi: "\x1b[33;1m" },
   watch: { emoji: "📺", label: "Watch API", ansi: "\x1b[36;1m" },
   rd: { emoji: "💿", label: "Real-Debrid", ansi: "\x1b[35;1m" },
-  mediaflow: { emoji: "🎬", label: "Mediaflow", ansi: "\x1b[34;1m" },
   supabase: { emoji: "🗄️", label: "Supabase", ansi: "\x1b[32;1m" },
   redis: { emoji: "📮", label: "Redis", ansi: "\x1b[95;1m" },
   http: { emoji: "🌍", label: "HTTP", ansi: "\x1b[34;1m" },
@@ -87,7 +86,6 @@ function resolveSvc(log: Record<string, unknown>, message: string): LogSvc {
     msg.includes("Submitting magnet URI") ||
     msg.includes("Real-Debrid cloud download progress") ||
     msg.includes("Saved playback:") ||
-    msg.includes("Mediaflow URL build failed") ||
     msg.includes("Ingestion job finished") ||
     msg.includes("BullMQ reported job") ||
     msg.includes("BullMQ job ")
@@ -97,7 +95,6 @@ function resolveSvc(log: Record<string, unknown>, message: string): LogSvc {
   if (
     msg.includes("watch: poll") ||
     msg.includes("watch: stream") ||
-    msg.includes("watch: force-hls") ||
     msg.includes("watch: trigger")
   ) {
     return "watch";

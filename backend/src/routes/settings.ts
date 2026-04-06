@@ -1,30 +1,9 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { rdClient } from "../lib/real-debrid";
-import { probeMediaflow } from "../lib/mediaflow";
 
 import { supabase } from "../lib/supabase";
 
 export default async function (fastify: FastifyInstance) {
-  fastify.get("/api/settings/mediaflow/status", async () => {
-    const probe = await probeMediaflow();
-    if (!probe.enabled) {
-      return {
-        success: false,
-        enabled: false,
-        message: "MediaFlow is disabled or missing configuration.",
-      };
-    }
-    return {
-      success: probe.healthOk && probe.encryptedPathWorks !== false,
-      enabled: true,
-      health: probe.healthStatus,
-      public_ip: probe.publicIp,
-      encrypted_path_works: probe.encryptedPathWorks,
-      encrypted_path_hint: probe.encryptedPathHint ?? null,
-      error: probe.error ?? null,
-    };
-  });
-
   fastify.get(
     "/api/settings/real-debrid/user",
     async (request: FastifyRequest, reply: FastifyReply) => {

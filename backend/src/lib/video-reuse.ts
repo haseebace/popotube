@@ -19,7 +19,6 @@ function getVideoPriority(video: Record<string, any>): number {
 
   if (video.status === "completed") {
     if (video.playback_source) priority += 120;
-    if (video.mediaflow_playback) priority += 100;
     if (video.stream_url) priority += 80;
   }
 
@@ -50,11 +49,65 @@ export function isReusableVideoStatus(status?: string): boolean {
   );
 }
 
+async function findVideosByMovieFk(
+  movieUuid: string,
+  columns: string,
+): Promise<Record<string, any>[] | null> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select(columns)
+    .eq("movie_id", movieUuid);
+  if (error) throw error;
+  return data && data.length > 0 ? data : null;
+}
+
+async function findVideosByTvEpisodeFk(
+  episodeUuid: string,
+  columns: string,
+): Promise<Record<string, any>[] | null> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select(columns)
+    .eq("tv_episode_id", episodeUuid);
+  if (error) throw error;
+  return data && data.length > 0 ? data : null;
+}
+
 export async function findBestVideoForTmdb(
   tmdbId: number,
   columns: string = "*",
   opts: FindVideoForTmdbOpts = { mode: "movie" },
 ): Promise<Record<string, any> | null> {
+  if (opts.mode === "movie") {
+    const { data: movieRow, error: movieErr } = await supabase
+      .from("movies")
+      .select("id")
+      .eq("tmdb_movie_id", tmdbId)
+      .maybeSingle();
+    if (movieErr) throw movieErr;
+    if (movieRow?.id) {
+      const byFk = await findVideosByMovieFk(movieRow.id as string, columns);
+      if (byFk) {
+        return sortVideosByReusePriority(byFk)[0] ?? null;
+      }
+    }
+  } else {
+    const { data: epRow, error: epErr } = await supabase
+      .from("tv_episodes")
+      .select("id")
+      .eq("tmdb_series_id", tmdbId)
+      .eq("season_number", opts.seasonNumber)
+      .eq("episode_number", opts.episodeNumber)
+      .maybeSingle();
+    if (epErr) throw epErr;
+    if (epRow?.id) {
+      const byFk = await findVideosByTvEpisodeFk(epRow.id as string, columns);
+      if (byFk) {
+        return sortVideosByReusePriority(byFk)[0] ?? null;
+      }
+    }
+  }
+
   let q = supabase.from("videos").select(columns).eq("tmdb_id", tmdbId);
 
   if (opts.mode === "tv_episode") {

@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import "./lib/env";
+import cors from "@fastify/cors";
 
 import "./queue/ingestion";
 import { ingestionQueue } from "./queue/ingestion";
@@ -12,8 +13,10 @@ import streamRoute from "./routes/stream";
 import settingsRoute from "./routes/settings";
 import dashboardRoute from "./routes/dashboard";
 import downloadsRoute from "./routes/downloads";
-import forceHlsRoute from "./routes/force-hls";
 import searchRoute from "./routes/search";
+import torrentioSearchRoute from "./routes/torrentio-search";
+import tmdbRoutes from "./routes/tmdb-proxy";
+import activeDownloadsRoute from "./routes/active-downloads";
 
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -53,6 +56,25 @@ fastify.addHook("onResponse", (request, reply, done) => {
   done();
 });
 
+function corsOrigins(): boolean | string[] {
+  const raw = process.env.CORS_ORIGIN?.trim();
+  if (raw === "*") return true;
+  if (raw) {
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return ["http://localhost:3000", "http://127.0.0.1:3000"];
+}
+
+fastify.register(cors, {
+  origin: corsOrigins(),
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+  allowedHeaders: ["Content-Type", "Authorization", "Range"],
+  exposedHeaders: ["Content-Length", "Content-Range", "Accept-Ranges"],
+});
+
 fastify.register(fastifyReplyFrom);
 
 fastify.register(ingestRoute);
@@ -64,8 +86,10 @@ fastify.register(streamRoute);
 fastify.register(settingsRoute);
 fastify.register(dashboardRoute);
 fastify.register(downloadsRoute);
-fastify.register(forceHlsRoute);
 fastify.register(searchRoute);
+fastify.register(torrentioSearchRoute);
+fastify.register(tmdbRoutes);
+fastify.register(activeDownloadsRoute);
 
 const serverAdapter = new FastifyAdapter();
 createBullBoard({
